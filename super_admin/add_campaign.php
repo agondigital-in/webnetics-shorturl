@@ -159,89 +159,304 @@ try {
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Add New Campaign - Ads Platform</title>
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <!-- Bootstrap 5 -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <!-- Font Awesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        :root {
+            --primary: #4f46e5;
+            --primary-dark: #4338ca;
+            --secondary: #6366f1;
+            --success: #10b981;
+            --warning: #f59e0b;
+            --danger: #ef4444;
+            --dark: #1e293b;
+            --light: #f8fafc;
+            --gray: #64748b;
+        }
+        
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Outfit', sans-serif;
+            background-color: #f1f5f9;
+            min-height: 100vh;
+        }
+        
+        /* Navbar */
+        .navbar {
+            background: linear-gradient(135deg, var(--primary) 0%, var(--primary-dark) 100%) !important;
+            box-shadow: 0 4px 15px rgba(79, 70, 229, 0.2);
+        }
+        
+        /* Sidebar - Sticky */
+        .sidebar-wrapper {
+            position: sticky;
+            top: 20px;
+            height: fit-content;
+        }
+        
+        .sidebar-card {
+            background: white;
+            border: none;
+            border-radius: 12px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
+            overflow: hidden;
+        }
+        
+        .sidebar-card .card-header {
+            background: transparent;
+            border-bottom: 1px solid #e2e8f0;
+            font-weight: 600;
+            padding: 1rem 1.25rem;
+        }
+        
+        .list-group-item {
+            border: none;
+            border-radius: 8px !important;
+            margin: 0.15rem 0;
+            padding: 0.75rem 1rem;
+            transition: all 0.2s ease;
+            font-weight: 500;
+            color: var(--gray);
+        }
+        
+        .list-group-item i {
+            width: 20px;
+            text-align: center;
+        }
+        
+        .list-group-item:hover {
+            background: #f1f5f9;
+            color: var(--primary);
+            transform: translateX(5px);
+        }
+        
+        .list-group-item.active {
+            background: linear-gradient(135deg, var(--primary), var(--secondary));
+            color: white;
+            border-color: transparent;
+        }
+        
+        /* Main Content */
+        .main-content {
+            padding: 0;
+        }
+        
+        /* Cards */
+        .modern-card {
+            background: white;
+            border: none;
+            border-radius: 12px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
+        }
+        
+        .modern-card .card-header {
+            background: transparent;
+            border-bottom: 1px solid #e2e8f0;
+            font-weight: 600;
+            padding: 1rem 1.25rem;
+        }
+        
+        /* Page Header */
+        .page-header h2 {
+            font-weight: 700;
+            color: var(--dark);
+            margin-bottom: 1rem;
+        }
+        
+        /* Forms */
+        .form-label {
+            font-weight: 500;
+            color: #495057;
+            margin-bottom: 0.5rem;
+        }
+        
+        .form-control, .form-select {
+            border-radius: 8px;
+            border: 1px solid #e2e8f0;
+            padding: 0.625rem 1rem;
+        }
+        
+        .form-control:focus, .form-select:focus {
+            border-color: var(--primary);
+            box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.1);
+        }
+        
+        /* Buttons */
+        .btn-primary {
+            background: linear-gradient(135deg, var(--primary), var(--secondary));
+            border: none;
+            padding: 12px;
+            font-weight: 500;
+            transition: all 0.3s ease;
+            border-radius: 8px;
+        }
+        
+        .btn-primary:hover {
+            background: linear-gradient(135deg, var(--primary-dark), var(--primary));
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(79, 70, 229, 0.3);
+        }
+        
+        /* Alerts */
+        .alert {
+            border: none;
+            border-radius: 10px;
+        }
+        
+        /* Badge */
+        .badge {
+            padding: 0.4rem 0.75rem;
+            border-radius: 6px;
+            font-weight: 500;
+        }
+    </style>
 </head>
 <body>
-    <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
+    <nav class="navbar navbar-expand-lg navbar-dark">
         <div class="container">
-            <a class="navbar-brand" href="#">Ads Platform</a>
+            <a class="navbar-brand" href="#"><i class="fas fa-chart-line me-2"></i>Ads Platform</a>
             <div class="navbar-nav ms-auto">
-                <span class="navbar-text me-3">Welcome, <?php echo htmlspecialchars($_SESSION['username']); ?> (Super Admin)</span>
-                <a class="nav-link btn btn-outline-light" href="../logout.php">Logout</a>
+                <span class="navbar-text text-white me-3">
+                    <i class="fas fa-user-shield me-1"></i>
+                    Welcome, <?php echo htmlspecialchars($_SESSION['username']); ?> (Super Admin)
+                </span>
+                <a class="btn btn-outline-light btn-sm" href="../logout.php">
+                    <i class="fas fa-sign-out-alt me-1"></i>Logout
+                </a>
             </div>
         </div>
     </nav>
 
-    <div class="container-fluid mt-4">
+    <div class="container-fluid mt-4 px-4">
         <div class="row">
-            <div class="col-md-3">
-                <div class="card">
-                    <div class="card-header">
-                        <h5>Navigation</h5>
+            <div class="col-lg-2 col-md-3">
+                <div class="sidebar-wrapper">
+                    <div class="sidebar-card">
+                    <div class="card-header bg-white border-bottom py-3">
+                        <h5 class="mb-0"><i class="fas fa-bars me-2"></i>Navigation</h5>
                     </div>
-                    <div class="list-group list-group-flush">
-                        <a href="dashboard.php" class="list-group-item list-group-item-action">Home Dashboard</a>
-                        <a href="campaigns.php" class="list-group-item list-group-item-action">Campaigns</a>
-                        <a href="advertisers.php" class="list-group-item list-group-item-action">Advertisers</a>
-                        <a href="publishers.php" class="list-group-item list-group-item-action">Publishers</a>
-                        <a href="admins.php" class="list-group-item list-group-item-action">Admins</a>
-                        <a href="advertiser_campaigns.php" class="list-group-item list-group-item-action">View Advertiser Campaigns</a>
-                        <a href="publisher_campaigns.php" class="list-group-item list-group-item-action">View Publisher Campaigns</a>
-                        <a href="payment_reports.php" class="list-group-item list-group-item-action">Payment Reports</a>
+                    <div class="list-group list-group-flush p-3">
+                        <a href="dashboard.php" class="list-group-item list-group-item-action">
+                            <i class="fas fa-home me-2"></i>Dashboard
+                        </a>
+                        <a href="campaigns.php" class="list-group-item list-group-item-action active">
+                            <i class="fas fa-bullhorn me-2"></i>Campaigns
+                        </a>
+                        <a href="advertisers.php" class="list-group-item list-group-item-action">
+                            <i class="fas fa-users me-2"></i>Advertisers
+                        </a>
+                        <a href="publishers.php" class="list-group-item list-group-item-action">
+                            <i class="fas fa-share-alt me-2"></i>Publishers
+                        </a>
+                        <a href="admins.php" class="list-group-item list-group-item-action">
+                            <i class="fas fa-user-shield me-2"></i>Admins
+                        </a>
+                        <a href="advertiser_campaigns.php" class="list-group-item list-group-item-action">
+                            <i class="fas fa-ad me-2"></i>Advertiser Campaigns
+                        </a>
+                        <a href="publisher_campaigns.php" class="list-group-item list-group-item-action">
+                            <i class="fas fa-link me-2"></i>Publisher Campaigns
+                        </a>
+                        <a href="all_publishers_daily_clicks.php" class="list-group-item list-group-item-action">
+                            <i class="fas fa-chart-bar me-2"></i>Publishers Stats
+                        </a>
+                        <a href="payment_reports.php" class="list-group-item list-group-item-action">
+                            <i class="fas fa-file-invoice-dollar me-2"></i>Reports
+                        </a>
+                        <a href="security_settings.php" class="list-group-item list-group-item-action">
+                            <i class="fas fa-lock me-2"></i>Security
+                        </a>
+                    </div>
                     </div>
                 </div>
             </div>
             
-            <div class="col-md-9">
-                <h2>Add New Campaign</h2>
+            <div class="col-lg-10 col-md-9 main-content">
+                <div class="page-header">
+                    <h2><i class="fas fa-plus-circle me-2"></i>Add New Campaign</h2>
+                </div>
                 
                 <?php if ($error): ?>
-                    <div class="alert alert-danger"><?php echo htmlspecialchars($error); ?></div>
+                    <div class="alert alert-danger">
+                        <i class="fas fa-exclamation-triangle me-2"></i>
+                        <?php echo htmlspecialchars($error); ?>
+                    </div>
                 <?php endif; ?>
                 
                 <?php if ($success): ?>
-                    <div class="alert alert-success"><?php echo htmlspecialchars($success); ?></div>
+                    <div class="alert alert-success">
+                        <i class="fas fa-check-circle me-2"></i>
+                        <?php echo htmlspecialchars($success); ?>
+                    </div>
                 <?php endif; ?>
                 
-                <div class="card">
-                    <div class="card-body">
+                <div class="modern-card">
+                    <div class="card-header bg-white border-bottom py-3">
+                        <h5 class="mb-0"><i class="fas fa-edit me-2"></i>Campaign Details</h5>
+                    </div>
+                    <div class="card-body p-4">
                         <form method="POST">
                             <div class="mb-3">
-                                <label for="campaign_name" class="form-label">Campaign Name *</label>
+                                <label for="campaign_name" class="form-label">
+                                    <i class="fas fa-tag me-1"></i>Campaign Name *
+                                </label>
                                 <input type="text" class="form-control" id="campaign_name" name="campaign_name" value="<?php echo htmlspecialchars($campaign_name); ?>" required>
                             </div>
                             
                             <div class="mb-3">
-                                <label for="target_url" class="form-label">Website URL *</label>
+                                <label for="target_url" class="form-label">
+                                    <i class="fas fa-link me-1"></i>Website URL *
+                                </label>
                                 <input type="url" class="form-control" id="target_url" name="target_url" value="<?php echo htmlspecialchars($target_url); ?>" placeholder="https://example.com" required>
                             </div>
                             
                             <div class="row">
                                 <div class="col-md-6 mb-3">
-                                    <label for="start_date" class="form-label">Start Date *</label>
+                                    <label for="start_date" class="form-label">
+                                        <i class="fas fa-calendar-alt me-1"></i>Start Date *
+                                    </label>
                                     <input type="date" class="form-control" id="start_date" name="start_date" value="<?php echo htmlspecialchars($start_date); ?>" required>
                                 </div>
                                 
                                 <div class="col-md-6 mb-3">
-                                    <label for="end_date" class="form-label">End Date *</label>
+                                    <label for="end_date" class="form-label">
+                                        <i class="fas fa-calendar-check me-1"></i>End Date *
+                                    </label>
                                     <input type="date" class="form-control" id="end_date" name="end_date" value="<?php echo htmlspecialchars($end_date); ?>" required>
                                 </div>
                             </div>
                             
                             <div class="row">
                                 <div class="col-md-6 mb-3">
-                                    <label for="advertiser_payout" class="form-label">Advertiser Payout ($)</label>
+                                    <label for="advertiser_payout" class="form-label">
+                                        <i class="fas fa-dollar-sign me-1"></i>Advertiser Payout ($)
+                                    </label>
                                     <input type="number" class="form-control" id="advertiser_payout" name="advertiser_payout" step="0.01" min="0" value="<?php echo htmlspecialchars($advertiser_payout); ?>">
                                 </div>
                                 
                                 <div class="col-md-6 mb-3">
-                                    <label for="publisher_payout" class="form-label">Publisher Payout ($)</label>
+                                    <label for="publisher_payout" class="form-label">
+                                        <i class="fas fa-money-bill-wave me-1"></i>Publisher Payout ($)
+                                    </label>
                                     <input type="number" class="form-control" id="publisher_payout" name="publisher_payout" step="0.01" min="0" value="<?php echo htmlspecialchars($publisher_payout); ?>">
                                 </div>
                             </div>
                             
                             <div class="mb-3">
-                                <label for="campaign_type" class="form-label">Campaign Type</label>
+                                <label for="campaign_type" class="form-label">
+                                    <i class="fas fa-layer-group me-1"></i>Campaign Type
+                                </label>
                                 <select class="form-select" id="campaign_type" name="campaign_type">
                                     <option value="None" <?php echo $campaign_type === 'None' ? 'selected' : ''; ?>>None</option>
                                     <option value="CPR" <?php echo $campaign_type === 'CPR' ? 'selected' : ''; ?>>CPR (Cost Per Registration)</option>
@@ -253,10 +468,15 @@ try {
                             </div>
                             
                             <div class="mb-3">
-                                <label class="form-label">Advertisers (Required) *</label>
-                                <div class="border p-3 rounded">
+                                <label class="form-label">
+                                    <i class="fas fa-ad me-1"></i>Advertisers (Required) *
+                                </label>
+                                <div class="border p-3 rounded" style="background-color: #f8f9fa;">
                                     <?php if (empty($advertisers)): ?>
-                                        <p class="text-muted">No advertisers available. <a href="advertisers.php">Add advertisers first</a>.</p>
+                                        <p class="text-muted mb-0">
+                                            <i class="fas fa-info-circle me-1"></i>
+                                            No advertisers available. <a href="advertisers.php">Add advertisers first</a>.
+                                        </p>
                                     <?php else: ?>
                                         <?php foreach ($advertisers as $advertiser): ?>
                                             <div class="form-check">
@@ -270,11 +490,16 @@ try {
                                 </div>
                             </div>
                             
-                            <div class="mb-3">
-                                <label class="form-label">Publishers (Required) *</label>
-                                <div class="border p-3 rounded">
+                            <div class="mb-4">
+                                <label class="form-label">
+                                    <i class="fas fa-users me-1"></i>Publishers (Required) *
+                                </label>
+                                <div class="border p-3 rounded" style="background-color: #f8f9fa;">
                                     <?php if (empty($publishers)): ?>
-                                        <p class="text-muted">No publishers available. <a href="publishers.php">Add publishers first</a>.</p>
+                                        <p class="text-muted mb-0">
+                                            <i class="fas fa-info-circle me-1"></i>
+                                            No publishers available. <a href="publishers.php">Add publishers first</a>.
+                                        </p>
                                     <?php else: ?>
                                         <?php foreach ($publishers as $publisher): ?>
                                             <div class="form-check">
@@ -289,7 +514,9 @@ try {
                             </div>
                             
                             <div class="d-grid">
-                                <button type="submit" class="btn btn-primary">Create Campaign</button>
+                                <button type="submit" class="btn btn-primary btn-lg">
+                                    <i class="fas fa-plus-circle me-2"></i>Create Campaign
+                                </button>
                             </div>
                         </form>
                     </div>
