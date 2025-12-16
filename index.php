@@ -886,7 +886,7 @@
                 <div class="container-fluid px-0">
                     <a class="navbar-brand" href="#">
                         <img src="assets/images/logo.png" alt="webnetics-tracking Logo" class="brand-logo">
-                        <span class="brand-text">webnetics-tracking</span>
+                        <span class="brand-text">tracking</span>
                     </a>
                     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
                         <span class="navbar-toggler-icon"></span>
