@@ -13,7 +13,7 @@ $page_title = 'Campaign Statistics';
 
 // Detect environment and set base URL
 $is_localhost = (strpos($_SERVER['HTTP_HOST'], 'localhost') !== false || strpos($_SERVER['HTTP_HOST'], '127.0.0.1') !== false || strpos($_SERVER['HTTP_HOST'], '192.168.') !== false);
-$base_url = $is_localhost ? 'http://' . $_SERVER['HTTP_HOST'] . '/webnetics-shorturl/c/' : 'https://webneticads.com/c/';
+$base_url = $is_localhost ? 'http://' . $_SERVER['HTTP_HOST'] . '/webnetics-shorturl/c/' : 'https://tracking.webneticads.com/c/';
 
 $campaign_id = $_GET['id'] ?? '';
 

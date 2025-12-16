@@ -10,6 +10,10 @@ if (!isset($_SESSION['user_id']) || $_SESSION['role'] !== 'publisher') {
 
 require_once 'db_connection.php';
 
+// Detect environment and set base URL
+$is_localhost = (strpos($_SERVER['HTTP_HOST'], 'localhost') !== false || strpos($_SERVER['HTTP_HOST'], '127.0.0.1') !== false || strpos($_SERVER['HTTP_HOST'], '192.168.') !== false);
+$base_url = $is_localhost ? 'http://' . $_SERVER['HTTP_HOST'] . '/webnetics-shorturl/c/' : 'https://tracking.webneticads.com/c/';
+
 // Date Filter Logic
 $filter_type = $_GET['filter'] ?? 'custom';
 $start_date = $_GET['start_date'] ?? date('Y-m-d', strtotime('-30 days'));
@@ -375,8 +379,8 @@ try {
                                             <td><?php echo htmlspecialchars($campaign['campaign_type']); ?></td>
                                             <td>
                                                 <div class="d-flex align-items-center">
-                                                    <code class="small">http://localhost/webnetics-shorturl/c/<?php echo htmlspecialchars($campaign['short_code']); ?></code>
-                                                    <button class="btn btn-outline-primary btn-sm ms-2 copy-btn" onclick="copyToClipboard('http://localhost/webnetics-shorturl/c/<?php echo htmlspecialchars($campaign['short_code']); ?>', this)">
+                                                    <code class="small"><?php echo $base_url . htmlspecialchars($campaign['short_code']); ?></code>
+                                                    <button class="btn btn-outline-primary btn-sm ms-2 copy-btn" onclick="copyToClipboard('<?php echo $base_url . htmlspecialchars($campaign['short_code']); ?>', this)">
                                                         <i class="fas fa-copy"></i>
                                                     </button>
                                                 </div>
