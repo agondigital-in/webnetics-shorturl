@@ -1,9 +1,14 @@
 RewriteEngine On
 
-# Redirect short URLs to redirect.php with publisher parameter
+# Redirect short URLs to redirect.php with publisher parameter (with p prefix)
 RewriteCond %{REQUEST_FILENAME} !-f
 RewriteCond %{REQUEST_FILENAME} !-d
-RewriteRule ^c/([A-Za-z0-9]+)/([A-Za-z0-9]+)$ redirect.php?code=$1&pub=$2 [L,QSA]
+RewriteRule ^c/([0-9]+)/p([0-9]+)$ redirect.php?code=$1&pub=$2 [L,QSA]
+
+# Redirect short URLs to redirect.php with publisher parameter (backward compatibility)
+RewriteCond %{REQUEST_FILENAME} !-f
+RewriteCond %{REQUEST_FILENAME} !-d
+RewriteRule ^c/([A-Za-z0-9]+)/([0-9]+)$ redirect.php?code=$1&pub=$2 [L,QSA]
 
 # Redirect publisher-specific short codes to redirect.php
 RewriteCond %{REQUEST_FILENAME} !-f

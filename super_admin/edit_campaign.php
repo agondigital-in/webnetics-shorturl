@@ -154,27 +154,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         $stmt->execute([$campaign_id, $publisher_id]);
                     }
                     
-                    // Add new publisher short codes
+                    // Use the same campaign shortcode for new publishers
+                    // Get the campaign's main shortcode
+                    $stmt = $conn->prepare("SELECT shortcode FROM campaigns WHERE id = ?");
+                    $stmt->execute([$campaign_id]);
+                    $campaign_shortcode = $stmt->fetchColumn();
+                    
+                    // Add publisher short codes using the same campaign shortcode
                     $shortcode_stmt = $conn->prepare("INSERT INTO publisher_short_codes (campaign_id, publisher_id, short_code) VALUES (?, ?, ?)");
                     foreach ($publishers_to_add as $publisher_id) {
-                        // Generate unique publisher-specific short code
-                        $publisher_shortcode = '';
-                        $is_unique = false;
-                        $attempts = 0;
-                        
-                        while (!$is_unique && $attempts < 10) {
-                            $publisher_shortcode = generatePublisherShortcode();
-                            $check_stmt = $conn->prepare("SELECT COUNT(*) FROM publisher_short_codes WHERE short_code = ?");
-                            $check_stmt->execute([$publisher_shortcode]);
-                            if ($check_stmt->fetchColumn() == 0) {
-                                $is_unique = true;
-                            }
-                            $attempts++;
-                        }
-                        
-                        if ($is_unique) {
-                            $shortcode_stmt->execute([$campaign_id, $publisher_id, $publisher_shortcode]);
-                        }
+                        // Use the same campaign shortcode for all publishers
+                        $shortcode_stmt->execute([$campaign_id, $publisher_id, $campaign_shortcode]);
                     }
                 }
             }

@@ -379,8 +379,8 @@ try {
                                             <td><?php echo htmlspecialchars($campaign['campaign_type']); ?></td>
                                             <td>
                                                 <div class="d-flex align-items-center">
-                                                    <code class="small"><?php echo $base_url . 'c/' . htmlspecialchars($campaign['short_code']); ?></code>
-                                                    <button class="btn btn-outline-primary btn-sm ms-2 copy-btn" onclick="copyToClipboard('<?php echo $base_url . 'c/' . htmlspecialchars($campaign['short_code']); ?>', this)">
+                                                    <code class="small"><?php echo $base_url . 'c/' . htmlspecialchars($campaign['short_code']) . '/p' . $_SESSION['user_id']; ?></code>
+                                                    <button class="btn btn-outline-primary btn-sm ms-2 copy-btn" onclick="copyToClipboard('<?php echo $base_url . 'c/' . htmlspecialchars($campaign['short_code']) . '/p' . $_SESSION['user_id']; ?>', this)">
                                                         <i class="fas fa-copy"></i>
                                                     </button>
                                                 </div>

@@ -10,9 +10,16 @@ if (!isset($_SESSION['user_id']) || $_SESSION['role'] !== 'super_admin') {
 
 require_once '../db_connection.php';
 
-// Generate a unique shortcode
-function generateShortcode($length = 8) {
-    return 'CAMP' . substr(str_shuffle('ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789'), 0, $length);
+// Generate a unique shortcode (auto-increment starting from 1)
+function generateShortcode($conn) {
+    // Get the highest existing shortcode
+    $stmt = $conn->prepare("SELECT MAX(CAST(shortcode AS UNSIGNED)) as max_code FROM campaigns WHERE shortcode REGEXP '^[0-9]+$'");
+    $stmt->execute();
+    $result = $stmt->fetch(PDO::FETCH_ASSOC);
+    
+    $next_code = ($result && $result['max_code']) ? $result['max_code'] + 1 : 1;
+    
+    return (string)$next_code;
 }
 
 // Generate a unique publisher shortcode
@@ -39,8 +46,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $target_url = trim($_POST['target_url'] ?? '');
     $start_date = $_POST['start_date'] ?? '';
     $end_date = $_POST['end_date'] ?? '';
-    $advertiser_payout = $_POST['advertiser_payout'] ?? '0';
-    $publisher_payout = $_POST['publisher_payout'] ?? '0';
+    $advertiser_payout = !empty($_POST['advertiser_payout']) ? $_POST['advertiser_payout'] : '0';
+    $publisher_payout = !empty($_POST['publisher_payout']) ? $_POST['publisher_payout'] : '0';
     $campaign_type = $_POST['campaign_type'] ?? 'None';
     $advertiser_ids = $_POST['advertiser_ids'] ?? [];
     $publisher_ids = $_POST['publisher_ids'] ?? [];
@@ -61,24 +68,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $db = Database::getInstance();
             $conn = $db->getConnection();
             
-            // Generate unique base shortcode
-            $base_shortcode = '';
-            $is_unique = false;
-            $attempts = 0;
-            
-            while (!$is_unique && $attempts < 10) {
-                $base_shortcode = generateShortcode();
-                $stmt = $conn->prepare("SELECT COUNT(*) FROM campaigns WHERE shortcode = ?");
-                $stmt->execute([$base_shortcode]);
-                if ($stmt->fetchColumn() == 0) {
-                    $is_unique = true;
-                }
-                $attempts++;
-            }
-            
-            if (!$is_unique) {
-                throw new Exception('Unable to generate unique shortcode. Please try again.');
-            }
+            // Generate unique base shortcode (auto-increment)
+            $base_shortcode = generateShortcode($conn);
             
             // Begin transaction
             $conn->beginTransaction();
@@ -115,9 +106,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     // Insert into campaign_publishers
                     $publisher_stmt->execute([$campaign_id, $publisher_id]);
                     
-                    // Generate and insert publisher-specific short code
-                    $publisher_shortcode = generatePublisherShortcode($base_shortcode, $publisher_id);
-                    $shortcode_stmt->execute([$campaign_id, $publisher_id, $publisher_shortcode]);
+                    // Use the same base shortcode for all publishers
+                    $shortcode_stmt->execute([$campaign_id, $publisher_id, $base_shortcode]);
                 }
             }
             

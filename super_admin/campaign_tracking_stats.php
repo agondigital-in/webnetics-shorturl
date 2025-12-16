@@ -43,11 +43,20 @@ try {
     }
     
     $stmt = $conn->prepare("
-        SELECT p.name as publisher_name, psc.short_code, COALESCE(psc.clicks, 0) as clicks
+        SELECT 
+            p.id as publisher_id, 
+            p.name as publisher_name, 
+            psc.short_code, 
+            COALESCE(psc.clicks, 0) as psc_clicks,
+            COALESCE(cp.clicks, 0) as cp_clicks,
+            COALESCE(SUM(pdc.clicks), 0) as daily_clicks,
+            GREATEST(COALESCE(psc.clicks, 0), COALESCE(cp.clicks, 0), COALESCE(SUM(pdc.clicks), 0)) as clicks
         FROM publishers p
         JOIN campaign_publishers cp ON p.id = cp.publisher_id
         JOIN publisher_short_codes psc ON cp.campaign_id = psc.campaign_id AND cp.publisher_id = psc.publisher_id
+        LEFT JOIN publisher_daily_clicks pdc ON pdc.campaign_id = cp.campaign_id AND pdc.publisher_id = p.id
         WHERE cp.campaign_id = ?
+        GROUP BY p.id, p.name, psc.short_code, psc.clicks, cp.clicks
         ORDER BY p.name
     ");
     $stmt->execute([$campaign_id]);
@@ -136,8 +145,8 @@ require_once 'includes/navbar.php';
                                             <td class="fw-semibold"><?php echo htmlspecialchars($stats['publisher_name']); ?></td>
                                             <td><code><?php echo htmlspecialchars($stats['short_code']); ?></code></td>
                                             <td>
-                                                <code class="small"><?php echo $base_url . 'c/' . htmlspecialchars($stats['short_code']); ?></code>
-                                                <button class="btn btn-sm btn-link p-0 ms-2" onclick="copyToClipboard('<?php echo $base_url . 'c/' . htmlspecialchars($stats['short_code']); ?>')">
+                                                <code class="small"><?php echo $base_url . 'c/' . htmlspecialchars($stats['short_code']) . '/p' . $stats['publisher_id']; ?></code>
+                                                <button class="btn btn-sm btn-link p-0 ms-2" onclick="copyToClipboard('<?php echo $base_url . 'c/' . htmlspecialchars($stats['short_code']) . '/p' . $stats['publisher_id']; ?>')">
                                                     <i class="fas fa-copy"></i>
                                                 </button>
                                             </td>

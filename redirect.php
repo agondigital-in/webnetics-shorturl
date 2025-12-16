@@ -7,7 +7,8 @@ $short_code = $_GET['code'] ?? '';
 $publisher_id = $_GET['pub'] ?? '';
 
 // Debug logging
-file_put_contents('debug_log.txt', date('Y-m-d H:i:s') . " - Request: " . $_SERVER['REQUEST_URI'] . " - Params: " . print_r($_GET, true) . "\n", FILE_APPEND);
+$debug_msg = date('Y-m-d H:i:s') . " - Request: " . $_SERVER['REQUEST_URI'] . " - Params: " . print_r($_GET, true);
+file_put_contents('debug_log.txt', $debug_msg . "\n", FILE_APPEND);
 
 
 
@@ -90,9 +91,14 @@ try {
         $result = $stmt->fetch(PDO::FETCH_ASSOC);
         
         if (!$result) {
+            $debug_msg = date('Y-m-d H:i:s') . " - ERROR: Invalid link - code: {$short_code}, pub: {$publisher_id}\n";
+            file_put_contents('debug_log.txt', $debug_msg, FILE_APPEND);
             http_response_code(404);
             die('Invalid link!');
         }
+        
+        $debug_msg = date('Y-m-d H:i:s') . " - SUCCESS: Found campaign, updating clicks\n";
+        file_put_contents('debug_log.txt', $debug_msg, FILE_APPEND);
         
         // Get campaign_id for daily tracking
         $stmt = $conn->prepare("SELECT campaign_id FROM publisher_short_codes WHERE short_code = ? AND publisher_id = ?");

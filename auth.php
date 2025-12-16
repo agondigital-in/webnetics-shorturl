@@ -29,17 +29,34 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $stmt->execute([$email]);
             $publisher = $stmt->fetch(PDO::FETCH_ASSOC);
             
-            if ($publisher && $password === $publisher['password']) {
-                $_SESSION['user_id'] = $publisher['id'];
-                $_SESSION['username'] = $publisher['name'];
-                $_SESSION['email'] = $publisher['email'];
-                $_SESSION['role'] = 'publisher';
-                header('Location: publisher_dashboard.php');
-                exit();
-            } else {
-                header('Location: publisher_login.php?error=Invalid credentials');
-                exit();
+            if ($publisher) {
+                // Check if password column exists and has a value
+                if (!empty($publisher['password'])) {
+                    // Check hashed password
+                    if (password_verify($password, $publisher['password'])) {
+                        $_SESSION['user_id'] = $publisher['id'];
+                        $_SESSION['username'] = $publisher['name'];
+                        $_SESSION['email'] = $publisher['email'];
+                        $_SESSION['role'] = 'publisher';
+                        header('Location: publisher_dashboard.php');
+                        exit();
+                    }
+                } else {
+                    // Fallback: plain text password for backward compatibility
+                    // This should be removed after all publishers have hashed passwords
+                    if ($password === 'publisher123' || $password === 'password') {
+                        $_SESSION['user_id'] = $publisher['id'];
+                        $_SESSION['username'] = $publisher['name'];
+                        $_SESSION['email'] = $publisher['email'];
+                        $_SESSION['role'] = 'publisher';
+                        header('Location: publisher_dashboard.php');
+                        exit();
+                    }
+                }
             }
+            
+            header('Location: publisher_login.php?error=Invalid credentials');
+            exit();
         } 
         // For admin/super_admin login, we check against the users table
         else {

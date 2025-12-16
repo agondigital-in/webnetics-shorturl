@@ -42,13 +42,20 @@ try {
     
     // Get publisher tracking statistics
     $stmt = $conn->prepare("
-        SELECT p.name as publisher_name, 
-               psc.short_code,
-               COALESCE(psc.clicks, 0) as clicks
+        SELECT 
+            p.id as publisher_id,
+            p.name as publisher_name, 
+            psc.short_code,
+            COALESCE(psc.clicks, 0) as psc_clicks,
+            COALESCE(cp.clicks, 0) as cp_clicks,
+            COALESCE(SUM(pdc.clicks), 0) as daily_clicks,
+            GREATEST(COALESCE(psc.clicks, 0), COALESCE(cp.clicks, 0), COALESCE(SUM(pdc.clicks), 0)) as clicks
         FROM publishers p
         JOIN campaign_publishers cp ON p.id = cp.publisher_id
         JOIN publisher_short_codes psc ON cp.campaign_id = psc.campaign_id AND cp.publisher_id = psc.publisher_id
+        LEFT JOIN publisher_daily_clicks pdc ON pdc.campaign_id = cp.campaign_id AND pdc.publisher_id = p.id
         WHERE cp.campaign_id = ?
+        GROUP BY p.id, p.name, psc.short_code, psc.clicks, cp.clicks
         ORDER BY p.name
     ");
     $stmt->execute([$campaign_id]);
@@ -152,8 +159,8 @@ try {
                                                 <td><?php echo htmlspecialchars($stats['short_code']); ?></td>
                                                 <td>
                                                     <div class="d-flex align-items-center">
-                                                        <code id="tracking-link-<?php echo $stats['short_code']; ?>">http://localhost/webnetics-shorturl/c/<?php echo htmlspecialchars($stats['short_code']); ?></code>
-                                                        <button class="btn btn-outline-primary btn-sm ms-2 copy-btn" data-link="http://localhost/webnetics-shorturl/c/<?php echo htmlspecialchars($stats['short_code']); ?>" onclick="copyToClipboard('http://localhost/webnetics-shorturl/c/<?php echo htmlspecialchars($stats['short_code']); ?>', this)">Copy</button>
+                                                        <code id="tracking-link-<?php echo $stats['short_code']; ?>">http://localhost/webnetics-shorturl/c/<?php echo htmlspecialchars($stats['short_code']); ?>/p<?php echo $stats['publisher_id']; ?></code>
+                                                        <button class="btn btn-outline-primary btn-sm ms-2 copy-btn" data-link="http://localhost/webnetics-shorturl/c/<?php echo htmlspecialchars($stats['short_code']); ?>/p<?php echo $stats['publisher_id']; ?>" onclick="copyToClipboard('http://localhost/webnetics-shorturl/c/<?php echo htmlspecialchars($stats['short_code']); ?>/p<?php echo $stats['publisher_id']; ?>', this)">Copy</button>
                                                     </div>
                                                 </td>
                                                 <td><?php echo $stats['clicks']; ?></td>
