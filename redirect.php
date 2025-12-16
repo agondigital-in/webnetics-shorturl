@@ -6,6 +6,10 @@ require_once 'db_connection.php';
 $short_code = $_GET['code'] ?? '';
 $publisher_id = $_GET['pub'] ?? '';
 
+// Debug logging
+file_put_contents('debug_log.txt', date('Y-m-d H:i:s') . " - Request: " . $_SERVER['REQUEST_URI'] . " - Params: " . print_r($_GET, true) . "\n", FILE_APPEND);
+
+
 
 // If no publisher ID, check if this is a publisher-specific short code
 if (empty($publisher_id) && !empty($short_code)) {

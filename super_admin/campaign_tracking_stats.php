@@ -13,7 +13,7 @@ $page_title = 'Campaign Statistics';
 
 // Detect environment and set base URL
 $is_localhost = (strpos($_SERVER['HTTP_HOST'], 'localhost') !== false || strpos($_SERVER['HTTP_HOST'], '127.0.0.1') !== false || strpos($_SERVER['HTTP_HOST'], '192.168.') !== false);
-$base_url = $is_localhost ? 'http://' . $_SERVER['HTTP_HOST'] . '/webnetics-shorturl/c/' : 'https://tracking.webneticads.com/c/';
+$base_url = $is_localhost ? 'http://' . $_SERVER['HTTP_HOST'] . '/webnetics-shorturl/' : 'https://tracking.webneticads.com/';
 
 $campaign_id = $_GET['id'] ?? '';
 
@@ -85,7 +85,7 @@ require_once 'includes/navbar.php';
                     <div class="row">
                         <div class="col-md-6">
                             <p><strong>Short Code:</strong> <code><?php echo htmlspecialchars($campaign['shortcode']); ?></code>
-                                <button class="btn btn-sm btn-outline-primary ms-2" onclick="copyToClipboard('<?php echo rtrim($base_url, '/c/') . '/' . htmlspecialchars($campaign['shortcode']); ?>')">
+                                <button class="btn btn-sm btn-outline-primary ms-2" onclick="copyToClipboard('<?php echo rtrim($base_url, '/') . '/c/' . htmlspecialchars($campaign['shortcode']); ?>')">
                                     <i class="fas fa-copy"></i>
                                 </button>
                             </p>
@@ -136,8 +136,8 @@ require_once 'includes/navbar.php';
                                             <td class="fw-semibold"><?php echo htmlspecialchars($stats['publisher_name']); ?></td>
                                             <td><code><?php echo htmlspecialchars($stats['short_code']); ?></code></td>
                                             <td>
-                                                <code class="small"><?php echo $base_url . htmlspecialchars($stats['short_code']); ?></code>
-                                                <button class="btn btn-sm btn-link p-0 ms-2" onclick="copyToClipboard('<?php echo $base_url . htmlspecialchars($stats['short_code']); ?>')">
+                                                <code class="small"><?php echo $base_url . 'c/' . htmlspecialchars($stats['short_code']); ?></code>
+                                                <button class="btn btn-sm btn-link p-0 ms-2" onclick="copyToClipboard('<?php echo $base_url . 'c/' . htmlspecialchars($stats['short_code']); ?>')">
                                                     <i class="fas fa-copy"></i>
                                                 </button>
                                             </td>

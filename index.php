@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>webnetics-shorturl - URL Shortener & Advertising Platform</title>
+    <title>webnetics-tracking - URL Shortener & Advertising Platform</title>
     <meta name="description" content="Professional URL shortening and advertising platform with advanced analytics, campaign management, and monetization tools.">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
@@ -885,8 +885,8 @@
             <nav class="navbar navbar-expand-lg">
                 <div class="container-fluid px-0">
                     <a class="navbar-brand" href="#">
-                        <img src="assets/images/logo.png" alt="webnetics-shorturl Logo" class="brand-logo">
-                        <span class="brand-text">webnetics-shorturl</span>
+                        <img src="assets/images/logo.png" alt="webnetics-tracking Logo" class="brand-logo">
+                        <span class="brand-text">webnetics-tracking</span>
                     </a>
                     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
                         <span class="navbar-toggler-icon"></span>
@@ -1155,8 +1155,8 @@
             <div class="row">
                 <div class="col-lg-4 mb-4 mb-lg-0">
                     <div class="footer-brand">
-                        <img src="assets/images/logo.png" alt="webnetics-shorturl Logo">
-                        <span class="footer-brand-text">webnetics-shorturl</span>
+                        <img src="assets/images/logo.png" alt="webnetics-tracking Logo">
+                        <span class="footer-brand-text">webnetics-tracking</span>
                     </div>
                     <p class="footer-description">
                         Professional URL shortening and advertising platform delivering performance on Web & Mobile to worldwide advertisers.
@@ -1193,7 +1193,7 @@
                 </div>
             </div>
             <div class="footer-bottom">
-                <p>© 2025 webnetics-shorturl. All rights reserved.</p>
+                <p>© 2025 webnetics-tracking. All rights reserved.</p>
                 <div class="footer-bottom-links">
                     <a href="privacy_policy.php">Privacy</a>
                     <a href="terms_of_service.php">Terms</a>
