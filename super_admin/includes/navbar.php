@@ -4,7 +4,8 @@
 <nav class="navbar main-navbar navbar-expand-lg">
     <div class="container-fluid">
         <a class="navbar-brand" href="dashboard.php">
-            <i class="fas fa-chart-line me-2"></i>webnetics-shorturl Ads
+            <i class="fas fa-chart-line me-2"></i>webnetics-tracking
+
         </a>
         <button class="navbar-toggler mobile-menu-btn" type="button" data-bs-toggle="offcanvas" data-bs-target="#mobileSidebar">
             <i class="fas fa-bars text-white"></i>
