@@ -27,6 +27,11 @@ function generatePublisherShortcode($baseCode, $publisherId, $length = 4) {
     return $baseCode . substr(str_shuffle('ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789'), 0, $length);
 }
 
+// Generate unique pixel code
+function generatePixelCode($length = 8) {
+    return strtoupper(substr(md5(uniqid(mt_rand(), true)), 0, $length));
+}
+
 // Initialize variables
 $campaign_name = '';
 $target_url = '';
@@ -35,6 +40,7 @@ $end_date = date('Y-m-d', strtotime('+30 days'));
 $advertiser_payout = '';
 $publisher_payout = '';
 $campaign_type = 'None';
+$pixel_code = '';
 $advertiser_ids = [];
 $publisher_ids = [];
 $error = '';
@@ -49,6 +55,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $advertiser_payout = !empty($_POST['advertiser_payout']) ? $_POST['advertiser_payout'] : '0';
     $publisher_payout = !empty($_POST['publisher_payout']) ? $_POST['publisher_payout'] : '0';
     $campaign_type = $_POST['campaign_type'] ?? 'None';
+    $pixel_code = trim($_POST['pixel_code'] ?? '');
     $advertiser_ids = $_POST['advertiser_ids'] ?? [];
     $publisher_ids = $_POST['publisher_ids'] ?? [];
     
@@ -74,18 +81,39 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             // Begin transaction
             $conn->beginTransaction();
             
-            // Insert campaign
-            $stmt = $conn->prepare("
-                INSERT INTO campaigns (
-                    name, shortcode, target_url, start_date, end_date, 
-                    advertiser_payout, publisher_payout, campaign_type
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-            ");
+            // Generate pixel code if not provided
+            if (empty($pixel_code)) {
+                $pixel_code = generatePixelCode();
+            }
             
-            $stmt->execute([
-                $campaign_name, $base_shortcode, $target_url, $start_date, $end_date,
-                $advertiser_payout, $publisher_payout, $campaign_type
-            ]);
+            // Insert campaign (check if pixel_code column exists)
+            try {
+                $stmt = $conn->prepare("
+                    INSERT INTO campaigns (
+                        name, shortcode, pixel_code, target_url, start_date, end_date, 
+                        advertiser_payout, publisher_payout, campaign_type
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                ");
+                
+                $stmt->execute([
+                    $campaign_name, $base_shortcode, $pixel_code, $target_url, $start_date, $end_date,
+                    $advertiser_payout, $publisher_payout, $campaign_type
+                ]);
+            } catch (PDOException $e) {
+                // If pixel_code column doesn't exist, insert without it
+                $stmt = $conn->prepare("
+                    INSERT INTO campaigns (
+                        name, shortcode, target_url, start_date, end_date, 
+                        advertiser_payout, publisher_payout, campaign_type
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                ");
+                
+                $stmt->execute([
+                    $campaign_name, $base_shortcode, $target_url, $start_date, $end_date,
+                    $advertiser_payout, $publisher_payout, $campaign_type
+                ]);
+                $pixel_code = ''; // Reset since column doesn't exist
+            }
             
             $campaign_id = $conn->lastInsertId();
             
@@ -114,7 +142,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             // Commit transaction
             $conn->commit();
             
-            $success = "Campaign created successfully with base shortcode: $base_shortcode";
+            $success = "Campaign created successfully! Shortcode: $base_shortcode" . (!empty($pixel_code) ? ", Pixel Code: $pixel_code" : "");
             
             // Reset form values
             $campaign_name = '';
@@ -124,6 +152,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $advertiser_payout = '';
             $publisher_payout = '';
             $campaign_type = 'None';
+            $pixel_code = '';
             $advertiser_ids = [];
             $publisher_ids = [];
             
@@ -382,7 +411,7 @@ try {
                 </div>
             </div>
             
-            <div class="col-lg-10 col-md-9 main-content">
+            <div class="col-lg-10 col-md-9">
                 <div class="page-header">
                     <h2><i class="fas fa-plus-circle me-2"></i>Add New Campaign</h2>
                 </div>
@@ -453,18 +482,33 @@ try {
                                 </div>
                             </div>
                             
-                            <div class="mb-3">
-                                <label for="campaign_type" class="form-label">
-                                    <i class="fas fa-layer-group me-1"></i>Campaign Type
-                                </label>
-                                <select class="form-select" id="campaign_type" name="campaign_type">
-                                    <option value="None" <?php echo $campaign_type === 'None' ? 'selected' : ''; ?>>None</option>
-                                    <option value="CPR" <?php echo $campaign_type === 'CPR' ? 'selected' : ''; ?>>CPR (Cost Per Registration)</option>
-                                    <option value="CPL" <?php echo $campaign_type === 'CPL' ? 'selected' : ''; ?>>CPL (Cost Per Lead)</option>
-                                    <option value="CPC" <?php echo $campaign_type === 'CPC' ? 'selected' : ''; ?>>CPC (Cost Per Click)</option>
-                                    <option value="CPM" <?php echo $campaign_type === 'CPM' ? 'selected' : ''; ?>>CPM (Cost Per Thousand Impressions)</option>
-                                    <option value="CPS" <?php echo $campaign_type === 'CPS' ? 'selected' : ''; ?>>CPS (Cost Per Sale)</option>
-                                </select>
+                            <div class="row">
+                                <div class="col-md-6 mb-3">
+                                    <label for="campaign_type" class="form-label">
+                                        <i class="fas fa-layer-group me-1"></i>Campaign Type
+                                    </label>
+                                    <select class="form-select" id="campaign_type" name="campaign_type">
+                                        <option value="None" <?php echo $campaign_type === 'None' ? 'selected' : ''; ?>>None</option>
+                                        <option value="CPR" <?php echo $campaign_type === 'CPR' ? 'selected' : ''; ?>>CPR (Cost Per Registration)</option>
+                                        <option value="CPL" <?php echo $campaign_type === 'CPL' ? 'selected' : ''; ?>>CPL (Cost Per Lead)</option>
+                                        <option value="CPC" <?php echo $campaign_type === 'CPC' ? 'selected' : ''; ?>>CPC (Cost Per Click)</option>
+                                        <option value="CPM" <?php echo $campaign_type === 'CPM' ? 'selected' : ''; ?>>CPM (Cost Per Thousand Impressions)</option>
+                                        <option value="CPS" <?php echo $campaign_type === 'CPS' ? 'selected' : ''; ?>>CPS (Cost Per Sale)</option>
+                                    </select>
+                                </div>
+                                
+                                <div class="col-md-6 mb-3">
+                                    <label for="pixel_code" class="form-label">
+                                        <i class="fas fa-code me-1"></i>Pixel Code (Auto-generated if empty)
+                                    </label>
+                                    <div class="input-group">
+                                        <input type="text" class="form-control" id="pixel_code" name="pixel_code" value="<?php echo htmlspecialchars($pixel_code); ?>" placeholder="Leave empty to auto-generate">
+                                        <button class="btn btn-outline-secondary" type="button" onclick="generateNewPixelCode()">
+                                            <i class="fas fa-sync-alt"></i>
+                                        </button>
+                                    </div>
+                                    <small class="text-muted">Used for conversion tracking</small>
+                                </div>
                             </div>
                             
                             <div class="mb-3">
@@ -526,5 +570,15 @@ try {
     </div>
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        function generateNewPixelCode() {
+            var chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+            var code = '';
+            for (var i = 0; i < 8; i++) {
+                code += chars.charAt(Math.floor(Math.random() * chars.length));
+            }
+            document.getElementById('pixel_code').value = code;
+        }
+    </script>
 </body>
 </html>
