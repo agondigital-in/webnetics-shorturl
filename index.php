@@ -916,7 +916,42 @@
             </nav>
         </div>
     </header>
-
+ <!-- Login Section -->
+    <section class="login-section" id="login">
+        <div class="container">
+            <div class="section-header">
+                <span class="section-tag">Get Started</span>
+                <h2 class="section-title">Choose Your <span class="highlight">Portal</span></h2>
+                <p class="section-subtitle">
+                    Select your role to access the appropriate dashboard and start growing
+                </p>
+            </div>
+            
+            <div class="login-cards-grid">
+                <div class="login-card admin-card">
+                    <div class="login-icon">
+                        <i class="fas fa-user-shield"></i>
+                    </div>
+                    <h3>Advertiser Portal</h3>
+                    <p>Access the admin dashboard to manage campaigns, publishers, and view comprehensive analytics and reports.</p>
+                    <a href="login.php" class="btn-glow">
+                        <i class="fas fa-sign-in-alt"></i> Login as Admin
+                    </a>
+                </div>
+                
+                <div class="login-card publisher-card">
+                    <div class="login-icon">
+                        <i class="fas fa-share-alt"></i>
+                    </div>
+                    <h3>Publisher Portal</h3>
+                    <p>Track your campaigns, view detailed performance metrics, manage your earnings, and optimize your revenue.</p>
+                    <a href="publisher_login.php" class="btn-glow" style="background: linear-gradient(135deg, #8B5CF6, #a855f7);">
+                        <i class="fas fa-sign-in-alt"></i> Login as Publisher
+                    </a>
+                </div>
+            </div>
+        </div>
+    </section>
     <!-- Hero Section -->
     <section class="hero-section">
         <div class="container">
@@ -1039,42 +1074,7 @@
         </div>
     </section>
 
-    <!-- Login Section -->
-    <section class="login-section" id="login">
-        <div class="container">
-            <div class="section-header">
-                <span class="section-tag">Get Started</span>
-                <h2 class="section-title">Choose Your <span class="highlight">Portal</span></h2>
-                <p class="section-subtitle">
-                    Select your role to access the appropriate dashboard and start growing
-                </p>
-            </div>
-            
-            <div class="login-cards-grid">
-                <div class="login-card admin-card">
-                    <div class="login-icon">
-                        <i class="fas fa-user-shield"></i>
-                    </div>
-                    <h3>Advertiser Portal</h3>
-                    <p>Access the admin dashboard to manage campaigns, publishers, and view comprehensive analytics and reports.</p>
-                    <a href="login.php" class="btn-glow">
-                        <i class="fas fa-sign-in-alt"></i> Login as Admin
-                    </a>
-                </div>
-                
-                <div class="login-card publisher-card">
-                    <div class="login-icon">
-                        <i class="fas fa-share-alt"></i>
-                    </div>
-                    <h3>Publisher Portal</h3>
-                    <p>Track your campaigns, view detailed performance metrics, manage your earnings, and optimize your revenue.</p>
-                    <a href="publisher_login.php" class="btn-glow" style="background: linear-gradient(135deg, #8B5CF6, #a855f7);">
-                        <i class="fas fa-sign-in-alt"></i> Login as Publisher
-                    </a>
-                </div>
-            </div>
-        </div>
-    </section>
+   
 
     <!-- Testimonials Section -->
     <section class="testimonials-section">
