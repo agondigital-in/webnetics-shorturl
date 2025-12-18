@@ -333,14 +333,6 @@ require_once 'includes/navbar.php';
             <div class="modal-body">
                 <p class="mb-2"><strong>Campaign:</strong> <span id="modalCampaignName"></span></p>
                 
-                <p class="mb-2"><strong>Pixel URL:</strong></p>
-                <div class="input-group mb-3">
-                    <input type="text" class="form-control" id="modalPixelUrl" readonly>
-                    <button class="btn btn-outline-primary" type="button" onclick="copyPixelText('modalPixelUrl')">
-                        <i class="fas fa-copy"></i> Copy
-                    </button>
-                </div>
-                
                 <p class="mb-2"><strong>HTML Image Tag:</strong></p>
                 <div class="input-group mb-3">
                     <input type="text" class="form-control" id="modalPixelHtml" readonly>
@@ -360,33 +352,45 @@ require_once 'includes/navbar.php';
 
 <script>
 function showPixelCode(pixelCode, campaignName) {
-    var baseUrl = window.location.origin;
+    // Get the base URL of the current site
+    var pathArray = window.location.pathname.split('/');
+    pathArray.pop(); // Remove current file
+    pathArray.pop(); // Remove super_admin folder
+    var basePath = pathArray.join('/');
+    var baseUrl = window.location.origin + basePath;
+    
     var pixelUrl = baseUrl + '/pixel.php?p=' + pixelCode;
     var pixelHtml = '<img src="' + pixelUrl + '" width="1" height="1" style="display:none;" alt="">';
     
     document.getElementById('modalCampaignName').textContent = campaignName;
-    document.getElementById('modalPixelUrl').value = pixelUrl;
     document.getElementById('modalPixelHtml').value = pixelHtml;
     
-    new bootstrap.Modal(document.getElementById('pixelModal')).show();
+    var modal = new bootstrap.Modal(document.getElementById('pixelModal'));
+    modal.show();
 }
 
 function copyPixelText(elementId) {
     var copyText = document.getElementById(elementId);
     copyText.select();
-    navigator.clipboard.writeText(copyText.value);
+    copyText.setSelectionRange(0, 99999); // For mobile
     
-    var btn = copyText.nextElementSibling;
-    var originalHtml = btn.innerHTML;
-    btn.innerHTML = '<i class="fas fa-check"></i> Copied!';
-    btn.classList.remove('btn-outline-primary');
-    btn.classList.add('btn-success');
-    
-    setTimeout(function() {
-        btn.innerHTML = originalHtml;
-        btn.classList.remove('btn-success');
-        btn.classList.add('btn-outline-primary');
-    }, 2000);
+    navigator.clipboard.writeText(copyText.value).then(function() {
+        var btn = copyText.nextElementSibling;
+        var originalHtml = btn.innerHTML;
+        btn.innerHTML = '<i class="fas fa-check"></i> Copied!';
+        btn.classList.remove('btn-outline-primary');
+        btn.classList.add('btn-success');
+        
+        setTimeout(function() {
+            btn.innerHTML = originalHtml;
+            btn.classList.remove('btn-success');
+            btn.classList.add('btn-outline-primary');
+        }, 2000);
+    }).catch(function(err) {
+        // Fallback for older browsers
+        document.execCommand('copy');
+        alert('Copied!');
+    });
 }
 </script>
 
