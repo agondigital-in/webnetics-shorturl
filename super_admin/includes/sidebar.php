@@ -91,6 +91,21 @@ $current_page = basename($_SERVER['PHP_SELF']);
                     <i class="fas fa-user-shield me-2"></i> Admins
                 </a>
             </li>
+             <li class="nav-item">
+            <a class="nav-link <?php echo in_array($current_page, ['advertiser_campaigns.php']) ? 'active' : ''; ?>" href="advertiser_campaigns.php">
+                <i class="fas fa-ad"></i> Advertiser Campaigns
+            </a>
+        </li>
+        <li class="nav-item">
+            <a class="nav-link <?php echo in_array($current_page, ['publisher_campaigns.php']) ? 'active' : ''; ?>" href="publisher_campaigns.php">
+                <i class="fas fa-link"></i> Publisher Campaigns
+            </a>
+        </li>
+        <li class="nav-item">
+            <a class="nav-link <?php echo in_array($current_page, ['all_publishers_daily_clicks.php', 'publisher_daily_clicks.php', 'campaign_tracking_stats.php']) ? 'active' : ''; ?>" href="all_publishers_daily_clicks.php">
+                <i class="fas fa-chart-bar"></i> Publishers Stats
+            </a>
+        </li>
             <li class="nav-item">
                 <a class="nav-link <?php echo $current_page === 'payment_reports.php' ? 'active' : ''; ?>" href="payment_reports.php">
                     <i class="fas fa-file-invoice-dollar me-2"></i> Reports
