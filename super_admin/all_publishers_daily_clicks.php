@@ -57,7 +57,36 @@ try {
     $has_pixel_columns = false;
 }
 
-if ($has_pixel_columns) {
+// Check if publisher_pixel_codes table exists
+$has_publisher_pixels = false;
+try {
+    $check = $conn->query("SHOW TABLES LIKE 'publisher_pixel_codes'");
+    $has_publisher_pixels = $check->rowCount() > 0;
+} catch (Exception $e) {
+    $has_publisher_pixels = false;
+}
+
+if ($has_publisher_pixels) {
+    // Get publisher-wise pixel codes and conversions
+    $stmt = $conn->prepare("
+        SELECT 
+            c.id as campaign_id, 
+            c.name as campaign_name, 
+            ppc.pixel_code,
+            COALESCE(ppc.conversion_count, 0) as publisher_conversions,
+            p.id as publisher_id,
+            p.name as publisher_name,
+            COALESCE(SUM(pdc.clicks), 0) as total_clicks,
+            COALESCE(ppc.conversion_count, 0) as total_conversions
+        FROM campaigns c
+        JOIN campaign_publishers cp ON c.id = cp.campaign_id
+        JOIN publishers p ON cp.publisher_id = p.id
+        LEFT JOIN publisher_pixel_codes ppc ON c.id = ppc.campaign_id AND p.id = ppc.publisher_id
+        LEFT JOIN publisher_daily_clicks pdc ON c.id = pdc.campaign_id AND p.id = pdc.publisher_id AND pdc.click_date BETWEEN ? AND ?
+        GROUP BY c.id, c.name, ppc.pixel_code, ppc.conversion_count, p.id, p.name
+        ORDER BY c.name, p.name
+    ");
+} elseif ($has_pixel_columns) {
     $stmt = $conn->prepare("
         SELECT 
             c.id as campaign_id, 
@@ -290,11 +319,11 @@ require_once 'includes/navbar.php';
                                         </td>
                                         <td class="text-center">
                                             <?php if (!empty($row['pixel_code'])): ?>
-                                            <button class="btn btn-sm btn-outline-info" onclick="showPixelCode('<?php echo htmlspecialchars($row['pixel_code']); ?>', '<?php echo htmlspecialchars($row['campaign_name']); ?>')" title="View Pixel Code">
-                                                <i class="fas fa-code"></i>
+                                            <button class="btn btn-sm btn-outline-info" onclick="showPixelCode('<?php echo htmlspecialchars($row['pixel_code']); ?>', '<?php echo htmlspecialchars($row['campaign_name']); ?>', '<?php echo htmlspecialchars($row['publisher_name']); ?>')" title="View Pixel Code">
+                                                <i class="fas fa-code"></i> <?php echo htmlspecialchars($row['pixel_code']); ?>
                                             </button>
                                             <?php else: ?>
-                                            <span class="text-muted">-</span>
+                                            <span class="text-muted">No Pixel</span>
                                             <?php endif; ?>
                                         </td>
                                         <td class="text-center">
@@ -327,11 +356,13 @@ require_once 'includes/navbar.php';
     <div class="modal-dialog modal-lg">
         <div class="modal-content">
             <div class="modal-header bg-info text-white">
-                <h5 class="modal-title"><i class="fas fa-code me-2"></i>Conversion Pixel Code</h5>
+                <h5 class="modal-title"><i class="fas fa-code me-2"></i>Publisher Conversion Pixel Code</h5>
                 <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
             </div>
             <div class="modal-body">
                 <p class="mb-2"><strong>Campaign:</strong> <span id="modalCampaignName"></span></p>
+                <p class="mb-2"><strong>Publisher:</strong> <span id="modalPublisherName"></span></p>
+                <p class="mb-2"><strong>Pixel Code:</strong> <code id="modalPixelCode"></code></p>
                 
                 <p class="mb-2"><strong>HTML Image Tag:</strong></p>
                 <div class="input-group mb-3">
@@ -343,7 +374,7 @@ require_once 'includes/navbar.php';
                 
                 <div class="alert alert-info mb-0">
                     <i class="fas fa-info-circle me-2"></i>
-                    <strong>Instructions:</strong> Add this pixel code to your thank you/conversion page. When the page loads, a conversion will be tracked automatically.
+                    <strong>Instructions:</strong> Add this pixel code to your thank you/conversion page. Each publisher has a unique pixel code to track their conversions separately.
                 </div>
             </div>
         </div>
@@ -351,7 +382,7 @@ require_once 'includes/navbar.php';
 </div>
 
 <script>
-function showPixelCode(pixelCode, campaignName) {
+function showPixelCode(pixelCode, campaignName, publisherName) {
     // Get the base URL of the current site
     var pathArray = window.location.pathname.split('/');
     pathArray.pop(); // Remove current file
@@ -363,6 +394,8 @@ function showPixelCode(pixelCode, campaignName) {
     var pixelHtml = '<img src="' + pixelUrl + '" width="1" height="1" style="display:none;" alt="">';
     
     document.getElementById('modalCampaignName').textContent = campaignName;
+    document.getElementById('modalPublisherName').textContent = publisherName || 'N/A';
+    document.getElementById('modalPixelCode').textContent = pixelCode;
     document.getElementById('modalPixelHtml').value = pixelHtml;
     
     var modal = new bootstrap.Modal(document.getElementById('pixelModal'));

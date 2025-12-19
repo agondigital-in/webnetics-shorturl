@@ -32,13 +32,39 @@ try {
         outputPixel();
     }
     
-    // Find campaign by pixel code
-    $stmt = $conn->prepare("SELECT id, status FROM campaigns WHERE pixel_code = ? AND status = 'active'");
-    $stmt->execute([$pixel_code]);
-    $campaign = $stmt->fetch(PDO::FETCH_ASSOC);
+    $campaign_id = null;
+    $publisher_id = null;
     
-    if ($campaign) {
-        $campaign_id = $campaign['id'];
+    // First check publisher_pixel_codes table (publisher-wise tracking)
+    $pubPixelCheck = $conn->query("SHOW TABLES LIKE 'publisher_pixel_codes'");
+    if ($pubPixelCheck->rowCount() > 0) {
+        $stmt = $conn->prepare("
+            SELECT ppc.campaign_id, ppc.publisher_id, c.status 
+            FROM publisher_pixel_codes ppc 
+            JOIN campaigns c ON ppc.campaign_id = c.id 
+            WHERE ppc.pixel_code = ? AND c.status = 'active'
+        ");
+        $stmt->execute([$pixel_code]);
+        $pubPixel = $stmt->fetch(PDO::FETCH_ASSOC);
+        
+        if ($pubPixel) {
+            $campaign_id = $pubPixel['campaign_id'];
+            $publisher_id = $pubPixel['publisher_id'];
+        }
+    }
+    
+    // If not found in publisher pixels, check campaign pixel_code
+    if (!$campaign_id) {
+        $stmt = $conn->prepare("SELECT id, status FROM campaigns WHERE pixel_code = ? AND status = 'active'");
+        $stmt->execute([$pixel_code]);
+        $campaign = $stmt->fetch(PDO::FETCH_ASSOC);
+        
+        if ($campaign) {
+            $campaign_id = $campaign['id'];
+        }
+    }
+    
+    if ($campaign_id) {
         $ip_address = $_SERVER['REMOTE_ADDR'] ?? '';
         $user_agent = $_SERVER['HTTP_USER_AGENT'] ?? '';
         $referrer = $_SERVER['HTTP_REFERER'] ?? '';
@@ -47,12 +73,34 @@ try {
         // Check if conversions table exists
         $tableCheck = $conn->query("SHOW TABLES LIKE 'conversions'");
         if ($tableCheck->rowCount() > 0) {
-            // Record every conversion (no duplicate check - count all conversions)
-            $stmt = $conn->prepare("
-                INSERT INTO conversions (campaign_id, pixel_code, ip_address, user_agent, referrer) 
-                VALUES (?, ?, ?, ?, ?)
-            ");
-            $stmt->execute([$campaign_id, $pixel_code, $ip_address, $user_agent, $referrer]);
+            // Record conversion with publisher_id if available
+            if ($publisher_id) {
+                // Check if publisher_id column exists
+                $colCheck = $conn->query("SHOW COLUMNS FROM conversions LIKE 'publisher_id'");
+                if ($colCheck->rowCount() > 0) {
+                    $stmt = $conn->prepare("
+                        INSERT INTO conversions (campaign_id, publisher_id, pixel_code, ip_address, user_agent, referrer) 
+                        VALUES (?, ?, ?, ?, ?, ?)
+                    ");
+                    $stmt->execute([$campaign_id, $publisher_id, $pixel_code, $ip_address, $user_agent, $referrer]);
+                } else {
+                    $stmt = $conn->prepare("
+                        INSERT INTO conversions (campaign_id, pixel_code, ip_address, user_agent, referrer) 
+                        VALUES (?, ?, ?, ?, ?)
+                    ");
+                    $stmt->execute([$campaign_id, $pixel_code, $ip_address, $user_agent, $referrer]);
+                }
+                
+                // Update publisher pixel conversion count
+                $stmt = $conn->prepare("UPDATE publisher_pixel_codes SET conversion_count = conversion_count + 1 WHERE campaign_id = ? AND publisher_id = ?");
+                $stmt->execute([$campaign_id, $publisher_id]);
+            } else {
+                $stmt = $conn->prepare("
+                    INSERT INTO conversions (campaign_id, pixel_code, ip_address, user_agent, referrer) 
+                    VALUES (?, ?, ?, ?, ?)
+                ");
+                $stmt->execute([$campaign_id, $pixel_code, $ip_address, $user_agent, $referrer]);
+            }
             
             // Update campaign conversion count (if column exists)
             try {

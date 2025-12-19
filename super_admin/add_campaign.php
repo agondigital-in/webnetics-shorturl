@@ -125,10 +125,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 }
             }
             
-            // Assign publishers to campaign and generate tracking links
+            // Assign publishers to campaign and generate tracking links + pixel codes
             if (!empty($publisher_ids)) {
                 $publisher_stmt = $conn->prepare("INSERT INTO campaign_publishers (campaign_id, publisher_id) VALUES (?, ?)");
                 $shortcode_stmt = $conn->prepare("INSERT INTO publisher_short_codes (campaign_id, publisher_id, short_code) VALUES (?, ?, ?)");
+                
+                // Check if publisher_pixel_codes table exists
+                $pixelTableCheck = $conn->query("SHOW TABLES LIKE 'publisher_pixel_codes'");
+                $hasPixelTable = $pixelTableCheck->rowCount() > 0;
+                
+                if ($hasPixelTable) {
+                    $pixel_stmt = $conn->prepare("INSERT INTO publisher_pixel_codes (campaign_id, publisher_id, pixel_code) VALUES (?, ?, ?)");
+                }
                 
                 foreach ($publisher_ids as $publisher_id) {
                     // Insert into campaign_publishers
@@ -136,13 +144,43 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     
                     // Use the same base shortcode for all publishers
                     $shortcode_stmt->execute([$campaign_id, $publisher_id, $base_shortcode]);
+                    
+                    // Generate unique pixel code for each publisher
+                    if ($hasPixelTable) {
+                        $publisher_pixel_code = generatePixelCode() . '_P' . $publisher_id;
+                        $pixel_stmt->execute([$campaign_id, $publisher_id, $publisher_pixel_code]);
+                    }
                 }
             }
             
             // Commit transaction
             $conn->commit();
             
-            $success = "Campaign created successfully! Shortcode: $base_shortcode" . (!empty($pixel_code) ? ", Pixel Code: $pixel_code" : "");
+            // Build success message with publisher pixel codes
+            $success = "Campaign created successfully! Shortcode: $base_shortcode";
+            if (!empty($pixel_code)) {
+                $success .= ", Campaign Pixel: $pixel_code";
+            }
+            
+            // Get publisher pixel codes if table exists
+            if ($hasPixelTable && !empty($publisher_ids)) {
+                $stmt = $conn->prepare("
+                    SELECT ppc.pixel_code, p.name as publisher_name 
+                    FROM publisher_pixel_codes ppc 
+                    JOIN publishers p ON ppc.publisher_id = p.id 
+                    WHERE ppc.campaign_id = ?
+                ");
+                $stmt->execute([$campaign_id]);
+                $pubPixels = $stmt->fetchAll(PDO::FETCH_ASSOC);
+                
+                if (!empty($pubPixels)) {
+                    $success .= "<br><br><strong>Publisher Pixel Codes:</strong><ul>";
+                    foreach ($pubPixels as $pp) {
+                        $success .= "<li><strong>" . htmlspecialchars($pp['publisher_name']) . ":</strong> " . $pp['pixel_code'] . "</li>";
+                    }
+                    $success .= "</ul>";
+                }
+            }
             
             // Reset form values
             $campaign_name = '';
@@ -426,7 +464,7 @@ try {
                 <?php if ($success): ?>
                     <div class="alert alert-success">
                         <i class="fas fa-check-circle me-2"></i>
-                        <?php echo htmlspecialchars($success); ?>
+                        <?php echo $success; ?>
                     </div>
                 <?php endif; ?>
                 
