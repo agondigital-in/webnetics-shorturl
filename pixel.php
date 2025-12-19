@@ -47,39 +47,30 @@ try {
         // Check if conversions table exists
         $tableCheck = $conn->query("SHOW TABLES LIKE 'conversions'");
         if ($tableCheck->rowCount() > 0) {
-            // Check for duplicate conversion (same IP within 24 hours)
+            // Record every conversion (no duplicate check - count all conversions)
             $stmt = $conn->prepare("
-                SELECT id FROM conversions 
-                WHERE campaign_id = ? AND ip_address = ? AND converted_at > DATE_SUB(NOW(), INTERVAL 24 HOUR)
+                INSERT INTO conversions (campaign_id, pixel_code, ip_address, user_agent, referrer) 
+                VALUES (?, ?, ?, ?, ?)
             ");
-            $stmt->execute([$campaign_id, $ip_address]);
+            $stmt->execute([$campaign_id, $pixel_code, $ip_address, $user_agent, $referrer]);
             
-            if (!$stmt->fetch()) {
-                // Record conversion
+            // Update campaign conversion count (if column exists)
+            try {
+                $stmt = $conn->prepare("UPDATE campaigns SET conversion_count = conversion_count + 1 WHERE id = ?");
+                $stmt->execute([$campaign_id]);
+            } catch (Exception $e) {
+                // Column doesn't exist, skip
+            }
+            
+            // Update daily conversions (if table exists)
+            $dailyCheck = $conn->query("SHOW TABLES LIKE 'daily_conversions'");
+            if ($dailyCheck->rowCount() > 0) {
                 $stmt = $conn->prepare("
-                    INSERT INTO conversions (campaign_id, pixel_code, ip_address, user_agent, referrer) 
-                    VALUES (?, ?, ?, ?, ?)
+                    INSERT INTO daily_conversions (campaign_id, conversion_date, conversions) 
+                    VALUES (?, ?, 1)
+                    ON DUPLICATE KEY UPDATE conversions = conversions + 1
                 ");
-                $stmt->execute([$campaign_id, $pixel_code, $ip_address, $user_agent, $referrer]);
-                
-                // Update campaign conversion count (if column exists)
-                try {
-                    $stmt = $conn->prepare("UPDATE campaigns SET conversion_count = conversion_count + 1 WHERE id = ?");
-                    $stmt->execute([$campaign_id]);
-                } catch (Exception $e) {
-                    // Column doesn't exist, skip
-                }
-                
-                // Update daily conversions (if table exists)
-                $dailyCheck = $conn->query("SHOW TABLES LIKE 'daily_conversions'");
-                if ($dailyCheck->rowCount() > 0) {
-                    $stmt = $conn->prepare("
-                        INSERT INTO daily_conversions (campaign_id, conversion_date, conversions) 
-                        VALUES (?, ?, 1)
-                        ON DUPLICATE KEY UPDATE conversions = conversions + 1
-                    ");
-                    $stmt->execute([$campaign_id, $today]);
-                }
+                $stmt->execute([$campaign_id, $today]);
             }
         }
     }
