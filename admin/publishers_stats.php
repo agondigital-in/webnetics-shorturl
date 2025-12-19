@@ -1,17 +1,27 @@
 <?php
-// super_admin/all_publishers_daily_clicks.php - All Publishers Daily Click Statistics
+// admin/publishers_stats.php - All Publishers Daily Click Statistics (Modern UI with Permissions)
 session_start();
 
-if (!isset($_SESSION['user_id']) || $_SESSION['role'] !== 'super_admin') {
+if (!isset($_SESSION['user_id']) || !in_array($_SESSION['role'], ['admin', 'super_admin'])) {
     header('Location: ../login.php');
     exit();
 }
 
 require_once '../db_connection.php';
+require_once 'includes/check_permission.php';
 
 $page_title = 'Publishers Stats';
 $db = Database::getInstance();
 $conn = $db->getConnection();
+
+$admin_permissions = getAdminPermissions($conn, $_SESSION['user_id']);
+$is_super_admin = ($_SESSION['role'] === 'super_admin');
+
+// Check permission
+if (!$is_super_admin && !in_array('publishers_stats_view', $admin_permissions)) {
+    header('Location: dashboard.php');
+    exit();
+}
 
 // Date Filter
 $filter_type = $_GET['filter'] ?? 'custom';
@@ -37,7 +47,7 @@ if (isset($_GET['filter'])) {
     }
 }
 
-// Get all campaigns with clicks and conversions (for Campaign Conversions table)
+// Get all campaigns with clicks and conversions
 $stmt = $conn->prepare("
     SELECT c.id as campaign_id, c.name as campaign_name, c.shortcode, c.click_count,
            COALESCE((SELECT SUM(clicks) FROM publisher_daily_clicks pdc WHERE pdc.campaign_id = c.id AND pdc.click_date BETWEEN ? AND ?), 0) as period_clicks
@@ -47,7 +57,6 @@ $stmt = $conn->prepare("
 $stmt->execute([$start_date, $end_date]);
 $campaign_conversions = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
-// Get publisher performance summary (for Publisher Performance table)
 // Check if pixel_code and conversion_count columns exist
 $has_pixel_columns = false;
 try {
@@ -67,15 +76,11 @@ try {
 }
 
 if ($has_publisher_pixels) {
-    // Get publisher-wise pixel codes and conversions
     $stmt = $conn->prepare("
         SELECT 
-            c.id as campaign_id, 
-            c.name as campaign_name, 
-            ppc.pixel_code,
+            c.id as campaign_id, c.name as campaign_name, ppc.pixel_code,
             COALESCE(ppc.conversion_count, 0) as publisher_conversions,
-            p.id as publisher_id,
-            p.name as publisher_name,
+            p.id as publisher_id, p.name as publisher_name,
             COALESCE(SUM(pdc.clicks), 0) as total_clicks,
             COALESCE(ppc.conversion_count, 0) as total_conversions
         FROM campaigns c
@@ -89,11 +94,8 @@ if ($has_publisher_pixels) {
 } elseif ($has_pixel_columns) {
     $stmt = $conn->prepare("
         SELECT 
-            c.id as campaign_id, 
-            c.name as campaign_name, 
-            c.pixel_code,
-            p.id as publisher_id,
-            p.name as publisher_name,
+            c.id as campaign_id, c.name as campaign_name, c.pixel_code,
+            p.id as publisher_id, p.name as publisher_name,
             COALESCE(SUM(pdc.clicks), 0) as total_clicks,
             COALESCE(c.conversion_count, 0) as total_conversions
         FROM campaigns c
@@ -106,11 +108,8 @@ if ($has_publisher_pixels) {
 } else {
     $stmt = $conn->prepare("
         SELECT 
-            c.id as campaign_id, 
-            c.name as campaign_name, 
-            NULL as pixel_code,
-            p.id as publisher_id,
-            p.name as publisher_name,
+            c.id as campaign_id, c.name as campaign_name, NULL as pixel_code,
+            p.id as publisher_id, p.name as publisher_name,
             COALESCE(SUM(pdc.clicks), 0) as total_clicks,
             0 as total_conversions
         FROM campaigns c
@@ -137,14 +136,25 @@ require_once 'includes/header.php';
 require_once 'includes/navbar.php';
 ?>
 
+<style>
+.stat-card-gradient {
+    border-radius: 12px;
+    padding: 20px;
+    color: white;
+}
+.stat-card-gradient .stat-value { font-size: 28px; font-weight: 700; }
+.stat-card-gradient .stat-label { font-size: 14px; opacity: 0.9; }
+.stat-card-gradient .stat-icon { font-size: 24px; opacity: 0.8; }
+</style>
+
 <div class="container-fluid">
     <div class="row">
         <?php require_once 'includes/sidebar.php'; ?>
         
         <div class="col-lg-10 main-content">
-            <div class="page-header">
-                <h2><i class="fas fa-chart-bar me-2"></i>All Publishers Daily Clicks</h2>
-                <p>Aggregated click statistics for all publishers</p>
+            <div class="page-header mb-4">
+                <h2 class="mb-1"><i class="fas fa-chart-bar me-2"></i>All Publishers Daily Clicks</h2>
+                <p class="text-muted mb-0">Aggregated click statistics for all publishers</p>
             </div>
             
             <!-- Filters -->
@@ -173,7 +183,7 @@ require_once 'includes/navbar.php';
                                 </div>
                                 <div class="col-md-4">
                                     <label class="form-label d-none d-md-block">&nbsp;</label>
-                                    <button type="submit" class="btn btn-primary-custom btn-sm w-100">Apply</button>
+                                    <button type="submit" class="btn btn-primary btn-sm w-100">Apply</button>
                                 </div>
                             </form>
                         </div>
@@ -184,7 +194,7 @@ require_once 'includes/navbar.php';
             <!-- Stats -->
             <div class="row mb-4">
                 <div class="col-md-3 mb-3">
-                    <div class="stat-card" style="background: linear-gradient(135deg, #4f46e5, #6366f1);">
+                    <div class="stat-card-gradient" style="background: linear-gradient(135deg, #4f46e5, #6366f1);">
                         <div class="d-flex justify-content-between align-items-center">
                             <div>
                                 <div class="stat-value"><?php echo number_format($total_clicks); ?></div>
@@ -195,7 +205,7 @@ require_once 'includes/navbar.php';
                     </div>
                 </div>
                 <div class="col-md-3 mb-3">
-                    <div class="stat-card" style="background: linear-gradient(135deg, #10b981, #059669);">
+                    <div class="stat-card-gradient" style="background: linear-gradient(135deg, #10b981, #059669);">
                         <div class="d-flex justify-content-between align-items-center">
                             <div>
                                 <div class="stat-value"><?php echo number_format($total_conversions); ?></div>
@@ -206,7 +216,7 @@ require_once 'includes/navbar.php';
                     </div>
                 </div>
                 <div class="col-md-3 mb-3">
-                    <div class="stat-card" style="background: linear-gradient(135deg, #06b6d4, #0891b2);">
+                    <div class="stat-card-gradient" style="background: linear-gradient(135deg, #06b6d4, #0891b2);">
                         <div class="d-flex justify-content-between align-items-center">
                             <div>
                                 <div class="stat-value"><?php echo $total_campaigns; ?></div>
@@ -217,7 +227,7 @@ require_once 'includes/navbar.php';
                     </div>
                 </div>
                 <div class="col-md-3 mb-3">
-                    <div class="stat-card" style="background: linear-gradient(135deg, #f59e0b, #d97706);">
+                    <div class="stat-card-gradient" style="background: linear-gradient(135deg, #f59e0b, #d97706);">
                         <div class="d-flex justify-content-between align-items-center">
                             <div>
                                 <div class="stat-value"><?php echo $total_clicks > 0 ? number_format(($total_conversions / $total_clicks) * 100, 1) : '0'; ?>%</div>
@@ -231,7 +241,7 @@ require_once 'includes/navbar.php';
             
             <!-- Campaign Clicks Table -->
             <div class="card mb-4">
-                <div class="card-header d-flex justify-content-between align-items-center bg-primary text-white">
+                <div class="card-header d-flex justify-content-between align-items-center" style="background: linear-gradient(135deg, var(--primary), var(--secondary)); color: white;">
                     <span><i class="fas fa-bullhorn me-2"></i>Campaign Clicks Summary</span>
                     <span class="badge bg-light text-primary"><?php echo date('M d', strtotime($start_date)); ?> - <?php echo date('M d', strtotime($end_date)); ?></span>
                 </div>
@@ -318,7 +328,7 @@ require_once 'includes/navbar.php';
                                             </span>
                                         </td>
                                         <td class="text-center">
-                                            <button class="btn btn-sm btn-outline-info" onclick="showPixelCode(<?php echo $row['campaign_id']; ?>, <?php echo $row['publisher_id']; ?>, '<?php echo htmlspecialchars($row['campaign_name']); ?>', '<?php echo htmlspecialchars($row['publisher_name']); ?>')" title="View S2S Pixel">
+                                            <button class="btn btn-sm btn-outline-info" onclick="showPixelCode(<?php echo $row['campaign_id']; ?>, <?php echo $row['publisher_id']; ?>, '<?php echo htmlspecialchars(addslashes($row['campaign_name'])); ?>', '<?php echo htmlspecialchars(addslashes($row['publisher_name'])); ?>')" title="View S2S Pixel">
                                                 <i class="fas fa-server"></i> S2S
                                             </button>
                                         </td>
@@ -446,8 +456,6 @@ require_once 'includes/navbar.php';
                         <p class="small text-muted mt-2 mb-0"><strong>Optional Parameters:</strong> <code>&txn_id=ORDER123</code> <code>&payout=10.00</code> <code>&status=success</code></p>
                     </div>
                 </div>
-                
-              
             </div>
         </div>
     </div>
@@ -455,14 +463,12 @@ require_once 'includes/navbar.php';
 
 <script>
 function showPixelCode(campaignId, publisherId, campaignName, publisherName) {
-    // Get the base URL of the current site
     var pathArray = window.location.pathname.split('/');
     pathArray.pop(); // Remove current file
-    pathArray.pop(); // Remove super_admin folder
+    pathArray.pop(); // Remove admin folder
     var basePath = pathArray.join('/');
     var baseUrl = window.location.origin + basePath;
     
-    // Generate publisher-specific S2S code
     var pubCode = btoa(campaignId + ':' + publisherId + ':s2s');
     
     // 1. S2S Postback URL
@@ -474,10 +480,9 @@ function showPixelCode(campaignId, publisherId, campaignName, publisherName) {
     // 3. JavaScript Pixel
     var jsPixel = '<script>\n(function() {\n  var img = new Image();\n  img.src = "' + s2sUrl + '";\n})();\n<\/script>';
     
-    // 4. Postback URL (same as S2S but shown separately)
+    // 4. Postback URL
     var postbackUrl = s2sUrl;
     
-    // Set values
     document.getElementById('modalCampaignName').textContent = campaignName;
     document.getElementById('modalPublisherName').textContent = publisherName || 'N/A';
     document.getElementById('modalS2sUrl').value = s2sUrl;
@@ -492,22 +497,17 @@ function showPixelCode(campaignId, publisherId, campaignName, publisherName) {
 function copyPixelText(elementId) {
     var copyText = document.getElementById(elementId);
     copyText.select();
-    copyText.setSelectionRange(0, 99999); // For mobile
+    copyText.setSelectionRange(0, 99999);
     
     navigator.clipboard.writeText(copyText.value).then(function() {
         var btn = copyText.nextElementSibling;
         var originalHtml = btn.innerHTML;
         btn.innerHTML = '<i class="fas fa-check"></i> Copied!';
-        btn.classList.remove('btn-outline-primary');
-        btn.classList.add('btn-success');
         
         setTimeout(function() {
             btn.innerHTML = originalHtml;
-            btn.classList.remove('btn-success');
-            btn.classList.add('btn-outline-primary');
         }, 2000);
     }).catch(function(err) {
-        // Fallback for older browsers
         document.execCommand('copy');
         alert('Copied!');
     });

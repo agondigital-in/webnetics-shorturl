@@ -99,3 +99,27 @@
     [pub] => 30
 )
 
+2025-12-19 06:54:31 - Request: /webnetics-shorturl/redirect.php?code=1&pub=30 - Params: Array
+(
+    [code] => 1
+    [pub] => 30
+)
+
+2025-12-19 06:57:08 - Request: /webnetics-shorturl/redirect.php?code=1&pub=30 - Params: Array
+(
+    [code] => 1
+    [pub] => 30
+)
+
+2025-12-19 11:55:46 - Request: /webnetics-shorturl/c/2/p30 - Params: Array
+(
+    [code] => 2
+    [pub] => 30
+)
+
+2025-12-19 11:56:18 - Request: /webnetics-shorturl/c/2/p31 - Params: Array
+(
+    [code] => 2
+    [pub] => 31
+)
+

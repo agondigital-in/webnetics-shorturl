@@ -1,16 +1,22 @@
 <?php
-// admin/campaign_tracking_stats.php - Campaign Tracking Statistics
+// admin/campaign_tracking_stats.php - Campaign Tracking Statistics (Modern UI)
 session_start();
 
-// Check if user is logged in and is an admin
 if (!isset($_SESSION['user_id']) || !in_array($_SESSION['role'], ['admin', 'super_admin'])) {
     header('Location: ../login.php');
     exit();
 }
 
 require_once '../db_connection.php';
+require_once 'includes/check_permission.php';
 
-// Get campaign ID from URL parameter
+$page_title = 'Campaign Stats';
+$db = Database::getInstance();
+$conn = $db->getConnection();
+
+// Get admin permissions
+$admin_permissions = getAdminPermissions($conn, $_SESSION['user_id']);
+
 $campaign_id = $_GET['id'] ?? '';
 
 if (empty($campaign_id)) {
@@ -19,13 +25,9 @@ if (empty($campaign_id)) {
 }
 
 try {
-    $db = Database::getInstance();
-    $conn = $db->getConnection();
-    
     // Get campaign details
     $stmt = $conn->prepare("
-        SELECT c.*, 
-               GROUP_CONCAT(DISTINCT a.name) as advertiser_names
+        SELECT c.*, GROUP_CONCAT(DISTINCT a.name) as advertiser_names
         FROM campaigns c
         LEFT JOIN campaign_advertisers ca ON c.id = ca.campaign_id
         LEFT JOIN advertisers a ON ca.advertiser_id = a.id
@@ -43,11 +45,8 @@ try {
     // Get publisher tracking statistics
     $stmt = $conn->prepare("
         SELECT 
-            p.id as publisher_id,
-            p.name as publisher_name, 
-            psc.short_code,
-            COALESCE(psc.clicks, 0) as psc_clicks,
-            COALESCE(cp.clicks, 0) as cp_clicks,
+            p.id as publisher_id, p.name as publisher_name, psc.short_code,
+            COALESCE(psc.clicks, 0) as psc_clicks, COALESCE(cp.clicks, 0) as cp_clicks,
             COALESCE(SUM(pdc.clicks), 0) as daily_clicks,
             GREATEST(COALESCE(psc.clicks, 0), COALESCE(cp.clicks, 0), COALESCE(SUM(pdc.clicks), 0)) as clicks
         FROM publishers p
@@ -61,155 +60,167 @@ try {
     $stmt->execute([$campaign_id]);
     $publisher_stats = $stmt->fetchAll(PDO::FETCH_ASSOC);
     
+    $total_clicks = array_sum(array_column($publisher_stats, 'clicks'));
+    
 } catch (PDOException $e) {
     $error = "Error loading campaign data: " . $e->getMessage();
 }
+
+// Get base URL from environment or use default
+$base_url = rtrim($_ENV['APP_URL'] ?? 'http://localhost/webnetics-shorturl', '/');
+
+require_once 'includes/header.php';
+require_once 'includes/navbar.php';
 ?>
 
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Campaign Tracking Statistics - Ads Platform</title>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-</head>
-<body>
-    <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
-        <div class="container">
-            <a class="navbar-brand" href="#">Ads Platform</a>
-            <div class="navbar-nav ms-auto">
-                <span class="navbar-text me-3">Welcome, <?php echo htmlspecialchars($_SESSION['username']); ?> (<?php echo ucfirst($_SESSION['role']); ?>)</span>
-                <a class="nav-link btn btn-outline-light" href="../logout.php">Logout</a>
+<div class="container-fluid">
+    <div class="row">
+        <?php require_once 'includes/sidebar.php'; ?>
+        
+        <div class="col-lg-10 main-content">
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <div>
+                    <h2 class="mb-1"><i class="fas fa-chart-bar me-2"></i><?php echo htmlspecialchars($campaign['name']); ?></h2>
+                    <p class="text-muted mb-0">Campaign tracking statistics</p>
+                </div>
+                <a href="manage_campaigns.php" class="btn btn-outline-secondary">
+                    <i class="fas fa-arrow-left me-1"></i>Back to Campaigns
+                </a>
             </div>
-        </div>
-    </nav>
-
-    <div class="container-fluid mt-4">
-        <div class="row">
-            <div class="col-md-3">
-                <div class="card">
-                    <div class="card-header">
-                        <h5>Navigation</h5>
-                    </div>
-                    <div class="list-group list-group-flush">
-                        <a href="dashboard.php" class="list-group-item list-group-item-action">Dashboard</a>
-                        <a href="manage_campaigns.php" class="list-group-item list-group-item-action">Campaigns</a>
-                        <a href="manage_publishers.php" class="list-group-item list-group-item-action">Manage Publishers</a>
+            
+            <?php if (isset($error)): ?>
+                <div class="alert alert-danger"><i class="fas fa-exclamation-triangle me-2"></i><?php echo htmlspecialchars($error); ?></div>
+            <?php endif; ?>
+            
+            <!-- Campaign Details Card -->
+            <div class="card mb-4">
+                <div class="card-header">
+                    <i class="fas fa-info-circle me-2"></i>Campaign Details
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <p><strong>Base Short Code:</strong> 
+                                <code class="bg-light px-2 py-1 rounded"><?php echo htmlspecialchars($campaign['shortcode']); ?></code>
+                                <button class="btn btn-sm btn-outline-primary ms-2" onclick="copyToClipboard('<?php echo $base_url; ?>/<?php echo htmlspecialchars($campaign['shortcode']); ?>', this)">
+                                    <i class="fas fa-copy me-1"></i>Copy Link
+                                </button>
+                            </p>
+                            <p><strong>Advertisers:</strong> <?php echo htmlspecialchars($campaign['advertiser_names'] ?? 'N/A'); ?></p>
+                            <p><strong>Campaign Type:</strong> <span class="badge bg-secondary"><?php echo htmlspecialchars($campaign['campaign_type']); ?></span></p>
+                        </div>
+                        <div class="col-md-6">
+                            <p><strong>Target URL:</strong> <a href="<?php echo htmlspecialchars($campaign['target_url']); ?>" target="_blank" class="text-decoration-none"><?php echo htmlspecialchars($campaign['target_url']); ?> <i class="fas fa-external-link-alt ms-1"></i></a></p>
+                            <p><strong>Duration:</strong> <?php echo date('M d, Y', strtotime($campaign['start_date'])); ?> - <?php echo date('M d, Y', strtotime($campaign['end_date'])); ?></p>
+                            <p><strong>Status:</strong> <span class="badge bg-<?php echo $campaign['status'] === 'active' ? 'success' : 'secondary'; ?>"><?php echo ucfirst($campaign['status']); ?></span></p>
+                        </div>
                     </div>
                 </div>
             </div>
             
-            <div class="col-md-9">
-                <div class="d-flex justify-content-between align-items-center mb-3">
-                    <h2>Campaign: <?php echo htmlspecialchars($campaign['name']); ?></h2>
-                    <a href="manage_campaigns.php" class="btn btn-secondary">Back to Campaigns</a>
-                </div>
-                
-                <?php if (isset($error)): ?>
-                    <div class="alert alert-danger"><?php echo htmlspecialchars($error); ?></div>
-                <?php endif; ?>
-                
-                <div class="card mb-4">
-                    <div class="card-header">
-                        <h5>Campaign Details</h5>
-                    </div>
-                    <div class="card-body">
-                        <div class="row">
-                            <div class="col-md-6">
-                                <p><strong>Base Short Code:</strong> <?php echo htmlspecialchars($campaign['shortcode']); ?> <button class="btn btn-outline-primary btn-sm ms-2 copy-btn" onclick="copyToClipboard('http://localhost/webnetics-shorturl/<?php echo htmlspecialchars($campaign['shortcode']); ?>', this)">Copy Link</button></p>
-                                <p><strong>Advertisers:</strong> <?php echo htmlspecialchars($campaign['advertiser_names'] ?? 'N/A'); ?></p>
-                                <p><strong>Start Date:</strong> <?php echo htmlspecialchars($campaign['start_date']); ?></p>
+            <!-- Stats Cards -->
+            <div class="row mb-4">
+                <div class="col-md-4 mb-3">
+                    <div class="stat-card">
+                        <div class="d-flex justify-content-between">
+                            <div>
+                                <div class="value"><?php echo number_format($total_clicks); ?></div>
+                                <div class="label">Total Clicks</div>
                             </div>
-                            <div class="col-md-6">
-                                <p><strong>Campaign Type:</strong> <?php echo htmlspecialchars($campaign['campaign_type']); ?></p>
-                                <p><strong>Website URL:</strong> <a href="<?php echo htmlspecialchars($campaign['target_url']); ?>" target="_blank"><?php echo htmlspecialchars($campaign['target_url']); ?></a></p>
-                                <p><strong>End Date:</strong> <?php echo htmlspecialchars($campaign['end_date']); ?></p>
+                            <div class="icon" style="background: linear-gradient(135deg, #4f46e5, #6366f1);">
+                                <i class="fas fa-mouse-pointer"></i>
                             </div>
                         </div>
                     </div>
                 </div>
-                
-                <div class="card">
-                    <div class="card-header">
-                        <h5>Publisher Tracking Statistics</h5>
-                    </div>
-                    <div class="card-body">
-                        <?php if (empty($publisher_stats)): ?>
-                            <p>No publishers assigned to this campaign.</p>
-                        <?php else: ?>
-                            <div class="table-responsive">
-                                <table class="table table-striped">
-                                    <thead>
-                                        <tr>
-                                            <th>Publisher</th>
-                                            <th>Short Code</th>
-                                            <th>Tracking Link</th>
-                                            <th>Clicks</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody>
-                                        <?php 
-                                        $total_clicks = 0;
-                                        foreach ($publisher_stats as $stats): 
-                                            $total_clicks += $stats['clicks'];
-                                        ?>
-                                            <tr>
-                                                <td><?php echo htmlspecialchars($stats['publisher_name']); ?></td>
-                                                <td><?php echo htmlspecialchars($stats['short_code']); ?></td>
-                                                <td>
-                                                    <div class="d-flex align-items-center">
-                                                        <code id="tracking-link-<?php echo $stats['short_code']; ?>">http://localhost/webnetics-shorturl/c/<?php echo htmlspecialchars($stats['short_code']); ?>/p<?php echo $stats['publisher_id']; ?></code>
-                                                        <button class="btn btn-outline-primary btn-sm ms-2 copy-btn" data-link="http://localhost/webnetics-shorturl/c/<?php echo htmlspecialchars($stats['short_code']); ?>/p<?php echo $stats['publisher_id']; ?>" onclick="copyToClipboard('http://localhost/webnetics-shorturl/c/<?php echo htmlspecialchars($stats['short_code']); ?>/p<?php echo $stats['publisher_id']; ?>', this)">Copy</button>
-                                                    </div>
-                                                </td>
-                                                <td><?php echo $stats['clicks']; ?></td>
-                                            </tr>
-                                        <?php endforeach; ?>
-                                        <tr class="table-info">
-                                            <td colspan="3"><strong>Total Clicks</strong></td>
-                                            <td><strong><?php echo $total_clicks; ?></strong></td>
-                                        </tr>
-                                    </tbody>
-                                </table>
+                <div class="col-md-4 mb-3">
+                    <div class="stat-card">
+                        <div class="d-flex justify-content-between">
+                            <div>
+                                <div class="value"><?php echo count($publisher_stats); ?></div>
+                                <div class="label">Publishers</div>
                             </div>
-                        <?php endif; ?>
+                            <div class="icon" style="background: linear-gradient(135deg, #10b981, #059669);">
+                                <i class="fas fa-users"></i>
+                            </div>
+                        </div>
                     </div>
+                </div>
+                <div class="col-md-4 mb-3">
+                    <div class="stat-card">
+                        <div class="d-flex justify-content-between">
+                            <div>
+                                <div class="value"><?php echo number_format($campaign['conversion_count'] ?? 0); ?></div>
+                                <div class="label">Conversions</div>
+                            </div>
+                            <div class="icon" style="background: linear-gradient(135deg, #f59e0b, #d97706);">
+                                <i class="fas fa-exchange-alt"></i>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Publisher Stats Table -->
+            <div class="card">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <span><i class="fas fa-table me-2"></i>Publisher Tracking Statistics</span>
+                    <span class="badge bg-primary"><?php echo count($publisher_stats); ?> publishers</span>
+                </div>
+                <div class="card-body p-0">
+                    <?php if (empty($publisher_stats)): ?>
+                        <div class="p-4 text-center text-muted">
+                            <i class="fas fa-users fa-3x mb-3"></i>
+                            <p>No publishers assigned to this campaign.</p>
+                        </div>
+                    <?php else: ?>
+                        <div class="table-responsive">
+                            <table class="table table-hover mb-0">
+                                <thead>
+                                    <tr>
+                                        <th>Publisher</th>
+                                        <th>Short Code</th>
+                                        <th>Tracking Link</th>
+                                        <th class="text-center">Clicks</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <?php foreach ($publisher_stats as $stats): 
+                                        $tracking_link = $base_url . '/c/' . htmlspecialchars($stats['short_code']) . '/p' . $stats['publisher_id'];
+                                    ?>
+                                    <tr>
+                                        <td>
+                                            <div class="d-flex align-items-center">
+                                                <div class="icon me-2" style="width:35px;height:35px;border-radius:8px;background:linear-gradient(135deg,#4f46e5,#6366f1);display:flex;align-items:center;justify-content:center;color:white;font-size:14px;">
+                                                    <?php echo strtoupper(substr($stats['publisher_name'], 0, 1)); ?>
+                                                </div>
+                                                <span class="fw-medium"><?php echo htmlspecialchars($stats['publisher_name']); ?></span>
+                                            </div>
+                                        </td>
+                                        <td><code class="bg-light px-2 py-1 rounded"><?php echo htmlspecialchars($stats['short_code']); ?></code></td>
+                                        <td>
+                                            <div class="d-flex align-items-center">
+                                                <code class="small text-truncate" style="max-width: 300px;"><?php echo $tracking_link; ?></code>
+                                                <button class="btn btn-sm btn-outline-primary ms-2" onclick="copyToClipboard('<?php echo $tracking_link; ?>', this)">
+                                                    <i class="fas fa-copy"></i>
+                                                </button>
+                                            </div>
+                                        </td>
+                                        <td class="text-center fw-bold text-primary"><?php echo number_format($stats['clicks']); ?></td>
+                                    </tr>
+                                    <?php endforeach; ?>
+                                    <tr class="table-light">
+                                        <td colspan="3" class="fw-bold">Total Clicks</td>
+                                        <td class="text-center fw-bold text-success"><?php echo number_format($total_clicks); ?></td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    <?php endif; ?>
                 </div>
             </div>
         </div>
     </div>
+</div>
 
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
-    <script>
-        function copyToClipboard(text, button) {
-            // Create a temporary input element
-            const tempInput = document.createElement('input');
-            tempInput.style.position = 'absolute';
-            tempInput.style.left = '-1000px';
-            tempInput.value = text;
-            document.body.appendChild(tempInput);
-            
-            // Select and copy the text
-            tempInput.select();
-            document.execCommand('copy');
-            
-            // Remove the temporary input
-            document.body.removeChild(tempInput);
-            
-            // Change button text to indicate success
-            const originalText = button.textContent;
-            button.textContent = 'Copied!';
-            button.classList.remove('btn-outline-primary');
-            button.classList.add('btn-success');
-            
-            // Reset button after 2 seconds
-            setTimeout(() => {
-                button.textContent = originalText;
-                button.classList.remove('btn-success');
-                button.classList.add('btn-outline-primary');
-            }, 2000);
-        }
-    </script>
-</body>
-</html>
+<?php require_once 'includes/footer.php'; ?>

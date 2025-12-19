@@ -55,13 +55,23 @@ $current_page = basename($_SERVER['PHP_SELF']);
                 <i class="fas fa-lock"></i> Security
             </a>
         </li>
+        <li class="nav-item">
+            <a class="nav-link <?php echo $current_page === 'database_backup.php' ? 'active' : ''; ?>" href="database_backup.php">
+                <i class="fas fa-database"></i> DB Backup
+            </a>
+        </li>
+        <li class="nav-item">
+            <a class="nav-link <?php echo $current_page === 'admin_permissions.php' ? 'active' : ''; ?>" href="admin_permissions.php">
+                <i class="fas fa-user-cog"></i> Admin Permissions
+            </a>
+        </li>
     </ul>
 </div>
 
 <!-- Mobile Offcanvas Sidebar -->
 <div class="offcanvas offcanvas-start" tabindex="-1" id="mobileSidebar">
     <div class="offcanvas-header" style="background: linear-gradient(135deg, var(--primary), var(--secondary));">
-        <h5 class="offcanvas-title text-white"><i class="fas fa-chart-line me-2"></i>webnetics-shorturl</h5>
+        <h5 class="offcanvas-title text-white"><i class="fas fa-chart-line me-2"></i>webnetics</h5>
         <button type="button" class="btn-close btn-close-white" data-bs-dismiss="offcanvas"></button>
     </div>
     <div class="offcanvas-body p-0">
@@ -114,6 +124,16 @@ $current_page = basename($_SERVER['PHP_SELF']);
             <li class="nav-item">
                 <a class="nav-link <?php echo $current_page === 'security_settings.php' ? 'active' : ''; ?>" href="security_settings.php">
                     <i class="fas fa-lock me-2"></i> Security
+                </a>
+            </li>
+            <li class="nav-item">
+                <a class="nav-link <?php echo $current_page === 'database_backup.php' ? 'active' : ''; ?>" href="database_backup.php">
+                    <i class="fas fa-database me-2"></i> DB Backup
+                </a>
+            </li>
+            <li class="nav-item">
+                <a class="nav-link <?php echo $current_page === 'admin_permissions.php' ? 'active' : ''; ?>" href="admin_permissions.php">
+                    <i class="fas fa-user-cog me-2"></i> Admin Permissions
                 </a>
             </li>
         </ul>

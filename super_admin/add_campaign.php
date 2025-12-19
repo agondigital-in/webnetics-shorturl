@@ -46,6 +46,12 @@ $publisher_ids = [];
 $error = '';
 $success = '';
 
+// Check for success message from redirect
+if (isset($_SESSION['success_message'])) {
+    $success = $_SESSION['success_message'];
+    unset($_SESSION['success_message']);
+}
+
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     // Get form data
     $campaign_name = trim($_POST['campaign_name'] ?? '');
@@ -182,17 +188,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 }
             }
             
-            // Reset form values
-            $campaign_name = '';
-            $target_url = '';
-            $start_date = date('Y-m-d');
-            $end_date = date('Y-m-d', strtotime('+30 days'));
-            $advertiser_payout = '';
-            $publisher_payout = '';
-            $campaign_type = 'None';
-            $pixel_code = '';
-            $advertiser_ids = [];
-            $publisher_ids = [];
+            // Store success message in session and redirect
+            $_SESSION['success_message'] = $success;
+            header('Location: add_campaign.php');
+            exit();
             
         } catch (Exception $e) {
             // Rollback transaction on error

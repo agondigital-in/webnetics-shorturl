@@ -13,6 +13,54 @@ $page_title = 'Admins';
 $success = '';
 $error = '';
 
+// Available permissions - grouped by category
+$available_permissions = [
+    'campaigns' => [
+        'campaigns_view' => 'View Campaigns',
+        'campaigns_create' => 'Create Campaigns',
+        'campaigns_edit' => 'Edit Campaigns',
+        'campaigns_delete' => 'Delete Campaigns',
+    ],
+    'publishers' => [
+        'publishers_view' => 'View Publishers',
+        'publishers_create' => 'Create Publishers',
+        'publishers_edit' => 'Edit Publishers',
+        'publishers_delete' => 'Delete Publishers',
+    ],
+    'advertisers' => [
+        'advertisers_view' => 'View Advertisers',
+        'advertisers_create' => 'Create Advertisers',
+        'advertisers_edit' => 'Edit Advertisers',
+        'advertisers_delete' => 'Delete Advertisers',
+    ],
+    'admins' => [
+        'admins_view' => 'View Admins',
+        'admins_create' => 'Create Admins',
+        'admins_edit' => 'Edit Admins',
+        'admins_delete' => 'Delete Admins',
+    ],
+    'assignments' => [
+        'advertiser_campaigns_view' => 'View Advertiser Campaigns',
+        'advertiser_campaigns_edit' => 'Edit Advertiser Campaigns',
+        'publisher_campaigns_view' => 'View Publisher Campaigns',
+        'publisher_campaigns_edit' => 'Edit Publisher Campaigns',
+    ],
+    'reports' => [
+        'stats_view' => 'View Statistics',
+        'publishers_stats_view' => 'View Publishers Stats',
+        'reports_view' => 'View Reports',
+        'reports_export' => 'Export Reports',
+    ],
+    'system' => [
+        'security_view' => 'View Security',
+        'security_edit' => 'Edit Security',
+        'db_backup_view' => 'View DB Backup',
+        'db_backup_create' => 'Create DB Backup',
+        'admin_permissions_view' => 'View Admin Permissions',
+        'admin_permissions_edit' => 'Edit Admin Permissions',
+    ],
+];
+
 // Handle add/edit admin
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     try {
@@ -71,9 +119,20 @@ try {
     $stmt->execute();
     $admins = $stmt->fetchAll(PDO::FETCH_ASSOC);
     
+    // Get permissions for each admin
+    $admin_permissions = [];
+    foreach ($admins as $admin) {
+        if ($admin['role'] === 'admin') {
+            $stmt2 = $conn->prepare("SELECT permission FROM admin_permissions WHERE admin_id = ?");
+            $stmt2->execute([$admin['id']]);
+            $admin_permissions[$admin['id']] = $stmt2->fetchAll(PDO::FETCH_COLUMN);
+        }
+    }
+    
 } catch (PDOException $e) {
     $error = "Error loading admins: " . $e->getMessage();
     $admins = [];
+    $admin_permissions = [];
 }
 
 require_once 'includes/header.php';
@@ -99,9 +158,9 @@ require_once 'includes/navbar.php';
                 <div class="alert alert-success"><i class="fas fa-check-circle me-2"></i><?php echo htmlspecialchars($success); ?></div>
             <?php endif; ?>
             
-            <?php if ($error): ?>
+            <!-- <?php if ($error): ?>
                 <div class="alert alert-danger"><i class="fas fa-exclamation-circle me-2"></i><?php echo htmlspecialchars($error); ?></div>
-            <?php endif; ?>
+            <?php endif; ?> -->
             
             <div class="card">
                 <div class="card-body p-0">
@@ -131,13 +190,23 @@ require_once 'includes/navbar.php';
                                         <button class="btn btn-sm btn-warning text-white edit-btn" 
                                                 data-id="<?php echo $admin['id']; ?>"
                                                 data-username="<?php echo htmlspecialchars($admin['username']); ?>"
-                                                data-role="<?php echo $admin['role']; ?>">
+                                                data-role="<?php echo $admin['role']; ?>"
+                                                title="Edit">
                                             <i class="fas fa-edit"></i>
                                         </button>
                                         <?php if ($admin['id'] != $_SESSION['user_id']): ?>
-                                        <a href="?delete=<?php echo $admin['id']; ?>" class="btn btn-sm btn-danger" onclick="return confirm('Delete this admin?')">
+                                        <a href="?delete=<?php echo $admin['id']; ?>" class="btn btn-sm btn-danger" onclick="return confirm('Delete this admin?')" title="Delete">
                                             <i class="fas fa-trash"></i>
                                         </a>
+                                        <?php endif; ?>
+                                        <?php if ($admin['role'] === 'admin'): ?>
+                                        <button class="btn btn-sm btn-info perm-btn" 
+                                                data-id="<?php echo $admin['id']; ?>"
+                                                data-username="<?php echo htmlspecialchars($admin['username']); ?>"
+                                                data-permissions="<?php echo htmlspecialchars(json_encode($admin_permissions[$admin['id']] ?? [])); ?>"
+                                                title="Manage Permissions">
+                                            <i class="fas fa-user-cog"></i>
+                                        </button>
                                         <?php endif; ?>
                                     </td>
                                 </tr>
@@ -147,6 +216,141 @@ require_once 'includes/navbar.php';
                     </div>
                 </div>
             </div>
+        </div>
+    </div>
+</div>
+
+<!-- Permissions Modal -->
+<div class="modal fade" id="permModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <form method="POST" action="admin_permissions.php">
+                <div class="modal-header bg-info text-white">
+                    <h5 class="modal-title"><i class="fas fa-user-cog me-2"></i>Permissions: <span id="permAdminName"></span></h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <input type="hidden" name="admin_id" id="permAdminId">
+                    <input type="hidden" name="redirect_to" value="admins.php">
+                    
+                    <div class="row">
+                        <!-- Campaigns -->
+                        <div class="col-md-6 mb-3">
+                            <div class="card h-100">
+                                <div class="card-header py-2 bg-light"><i class="fas fa-bullhorn me-2 text-primary"></i>Campaigns</div>
+                                <div class="card-body py-2">
+                                    <?php foreach ($available_permissions['campaigns'] as $perm => $label): ?>
+                                    <div class="form-check">
+                                        <input class="form-check-input perm-check" type="checkbox" name="permissions[]" value="<?php echo $perm; ?>" id="perm_<?php echo $perm; ?>">
+                                        <label class="form-check-label small" for="perm_<?php echo $perm; ?>"><?php echo $label; ?></label>
+                                    </div>
+                                    <?php endforeach; ?>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Publishers -->
+                        <div class="col-md-6 mb-3">
+                            <div class="card h-100">
+                                <div class="card-header py-2 bg-light"><i class="fas fa-users me-2 text-success"></i>Publishers</div>
+                                <div class="card-body py-2">
+                                    <?php foreach ($available_permissions['publishers'] as $perm => $label): ?>
+                                    <div class="form-check">
+                                        <input class="form-check-input perm-check" type="checkbox" name="permissions[]" value="<?php echo $perm; ?>" id="perm_<?php echo $perm; ?>">
+                                        <label class="form-check-label small" for="perm_<?php echo $perm; ?>"><?php echo $label; ?></label>
+                                    </div>
+                                    <?php endforeach; ?>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Advertisers -->
+                        <div class="col-md-6 mb-3">
+                            <div class="card h-100">
+                                <div class="card-header py-2 bg-light"><i class="fas fa-ad me-2 text-warning"></i>Advertisers</div>
+                                <div class="card-body py-2">
+                                    <?php foreach ($available_permissions['advertisers'] as $perm => $label): ?>
+                                    <div class="form-check">
+                                        <input class="form-check-input perm-check" type="checkbox" name="permissions[]" value="<?php echo $perm; ?>" id="perm_<?php echo $perm; ?>">
+                                        <label class="form-check-label small" for="perm_<?php echo $perm; ?>"><?php echo $label; ?></label>
+                                    </div>
+                                    <?php endforeach; ?>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Admins -->
+                        <div class="col-md-6 mb-3">
+                            <div class="card h-100">
+                                <div class="card-header py-2 bg-light"><i class="fas fa-user-shield me-2 text-danger"></i>Admins</div>
+                                <div class="card-body py-2">
+                                    <?php foreach ($available_permissions['admins'] as $perm => $label): ?>
+                                    <div class="form-check">
+                                        <input class="form-check-input perm-check" type="checkbox" name="permissions[]" value="<?php echo $perm; ?>" id="perm_<?php echo $perm; ?>">
+                                        <label class="form-check-label small" for="perm_<?php echo $perm; ?>"><?php echo $label; ?></label>
+                                    </div>
+                                    <?php endforeach; ?>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Campaign Assignments -->
+                        <div class="col-md-6 mb-3">
+                            <div class="card h-100">
+                                <div class="card-header py-2 bg-light"><i class="fas fa-link me-2 text-info"></i>Campaign Assignments</div>
+                                <div class="card-body py-2">
+                                    <?php foreach ($available_permissions['assignments'] as $perm => $label): ?>
+                                    <div class="form-check">
+                                        <input class="form-check-input perm-check" type="checkbox" name="permissions[]" value="<?php echo $perm; ?>" id="perm_<?php echo $perm; ?>">
+                                        <label class="form-check-label small" for="perm_<?php echo $perm; ?>"><?php echo $label; ?></label>
+                                    </div>
+                                    <?php endforeach; ?>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Reports & Stats -->
+                        <div class="col-md-6 mb-3">
+                            <div class="card h-100">
+                                <div class="card-header py-2 bg-light"><i class="fas fa-chart-bar me-2 text-purple"></i>Reports & Stats</div>
+                                <div class="card-body py-2">
+                                    <?php foreach ($available_permissions['reports'] as $perm => $label): ?>
+                                    <div class="form-check">
+                                        <input class="form-check-input perm-check" type="checkbox" name="permissions[]" value="<?php echo $perm; ?>" id="perm_<?php echo $perm; ?>">
+                                        <label class="form-check-label small" for="perm_<?php echo $perm; ?>"><?php echo $label; ?></label>
+                                    </div>
+                                    <?php endforeach; ?>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- System Settings -->
+                        <div class="col-md-12 mb-3">
+                            <div class="card">
+                                <div class="card-header py-2 bg-light"><i class="fas fa-cog me-2 text-secondary"></i>System Settings</div>
+                                <div class="card-body py-2">
+                                    <div class="row">
+                                        <?php foreach ($available_permissions['system'] as $perm => $label): ?>
+                                        <div class="col-md-4">
+                                            <div class="form-check">
+                                                <input class="form-check-input perm-check" type="checkbox" name="permissions[]" value="<?php echo $perm; ?>" id="perm_<?php echo $perm; ?>">
+                                                <label class="form-check-label small" for="perm_<?php echo $perm; ?>"><?php echo $label; ?></label>
+                                            </div>
+                                        </div>
+                                        <?php endforeach; ?>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-outline-secondary btn-sm" onclick="selectAllPerms()"><i class="fas fa-check-double me-1"></i>Select All</button>
+                    <button type="button" class="btn btn-outline-secondary btn-sm" onclick="clearAllPerms()"><i class="fas fa-times me-1"></i>Clear All</button>
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-info"><i class="fas fa-save me-1"></i>Save Permissions</button>
+                </div>
+            </form>
         </div>
     </div>
 </div>
@@ -189,6 +393,7 @@ require_once 'includes/navbar.php';
 
 <?php
 $extra_js = "
+    // Edit Admin Modal
     document.querySelectorAll('.edit-btn').forEach(btn => {
         btn.addEventListener('click', function() {
             document.getElementById('modalTitle').textContent = 'Edit Admin';
@@ -208,6 +413,39 @@ $extra_js = "
         document.getElementById('pwdNote').textContent = '(required)';
         this.querySelector('form').reset();
     });
+    
+    // Permissions Modal
+    document.querySelectorAll('.perm-btn').forEach(btn => {
+        btn.addEventListener('click', function() {
+            var adminId = this.dataset.id;
+            var username = this.dataset.username;
+            var permissions = JSON.parse(this.dataset.permissions || '[]');
+            
+            document.getElementById('permAdminId').value = adminId;
+            document.getElementById('permAdminName').textContent = username;
+            
+            // Clear all checkboxes first
+            document.querySelectorAll('.perm-check').forEach(cb => cb.checked = false);
+            
+            // Check the ones that are enabled
+            permissions.forEach(perm => {
+                var cb = document.getElementById('perm_' + perm);
+                if (cb) cb.checked = true;
+            });
+            
+            new bootstrap.Modal(document.getElementById('permModal')).show();
+        });
+    });
 ";
 require_once 'includes/footer.php';
 ?>
+
+<script>
+function selectAllPerms() {
+    document.querySelectorAll('.perm-check').forEach(cb => cb.checked = true);
+}
+
+function clearAllPerms() {
+    document.querySelectorAll('.perm-check').forEach(cb => cb.checked = false);
+}
+</script>

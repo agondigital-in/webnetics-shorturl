@@ -1,6 +1,41 @@
 <?php
-// redirect.php - Handles short URL redirects and tracks clicks
+// redirect.php - Handles short URL redirects and tracks clicks with S2S support
 require_once 'db_connection.php';
+
+// Generate unique click_id for S2S tracking
+function generateClickId() {
+    return bin2hex(random_bytes(16)) . time();
+}
+
+// Store click and return click_id
+function storeClick($conn, $campaign_id, $publisher_id, $click_id) {
+    try {
+        // Check if clicks table exists
+        $tableCheck = $conn->query("SHOW TABLES LIKE 'clicks'");
+        if ($tableCheck->rowCount() > 0) {
+            $stmt = $conn->prepare("
+                INSERT INTO clicks (click_id, campaign_id, publisher_id, ip_address, user_agent, referrer)
+                VALUES (?, ?, ?, ?, ?, ?)
+            ");
+            $stmt->execute([
+                $click_id,
+                $campaign_id,
+                $publisher_id,
+                $_SERVER['REMOTE_ADDR'] ?? '',
+                $_SERVER['HTTP_USER_AGENT'] ?? '',
+                $_SERVER['HTTP_REFERER'] ?? ''
+            ]);
+        }
+    } catch (Exception $e) {
+        error_log("Click store error: " . $e->getMessage());
+    }
+}
+
+// Append click_id to target URL
+function appendClickId($url, $click_id) {
+    $separator = (parse_url($url, PHP_URL_QUERY) == null) ? '?' : '&';
+    return $url . $separator . 'click_id=' . $click_id;
+}
 
 // Get the shortcode and publisher ID from the URL parameters
 $short_code = $_GET['code'] ?? '';
@@ -49,8 +84,13 @@ if (empty($publisher_id) && !empty($short_code)) {
             ");
             $stmt->execute([$campaign_id, $publisher_id, $today]);
             
-            // Redirect to the target URL
-            header("Location: " . $result['target_url'], true, 302);
+            // Generate click_id for S2S tracking
+            $click_id = generateClickId();
+            storeClick($conn, $campaign_id, $publisher_id, $click_id);
+            
+            // Redirect to the target URL with click_id
+            $redirect_url = appendClickId($result['target_url'], $click_id);
+            header("Location: " . $redirect_url, true, 302);
             exit();
         }
     } catch (PDOException $e) {
@@ -160,8 +200,13 @@ try {
         }
     }
     
-    // Redirect to the target URL
-    header("Location: " . $result['target_url'], true, 302);
+    // Generate click_id for S2S tracking
+    $click_id = generateClickId();
+    storeClick($conn, $campaign_id, $publisher_id, $click_id);
+    
+    // Redirect to the target URL with click_id
+    $redirect_url = appendClickId($result['target_url'], $click_id);
+    header("Location: " . $redirect_url, true, 302);
     exit();
     
 } catch (PDOException $e) {
