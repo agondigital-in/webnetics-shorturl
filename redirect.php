@@ -1,10 +1,65 @@
 <?php
 // redirect.php - Handles short URL redirects and tracks clicks with S2S support
+// Now includes IP + Fingerprint based tracking for conversions without parameters
 require_once 'db_connection.php';
 
 // Generate unique click_id for S2S tracking
 function generateClickId() {
     return bin2hex(random_bytes(16)) . time();
+}
+
+// Generate fingerprint from IP + User Agent for cookieless tracking
+function generateFingerprint($ip, $user_agent) {
+    return hash('sha256', $ip . '|' . $user_agent);
+}
+
+// Store click with fingerprint for parameter-less conversion tracking
+// No duplicate IPs - updates existing record if same campaign+publisher+fingerprint
+function storeClickWithFingerprint($conn, $campaign_id, $publisher_id, $click_id) {
+    $ip = $_SERVER['REMOTE_ADDR'] ?? '';
+    $user_agent = $_SERVER['HTTP_USER_AGENT'] ?? '';
+    $user_agent_hash = hash('sha256', $user_agent);
+    $fingerprint = generateFingerprint($ip, $user_agent);
+    
+    try {
+        // Check if click_fingerprints table exists, create if not
+        $tableCheck = $conn->query("SHOW TABLES LIKE 'click_fingerprints'");
+        if ($tableCheck->rowCount() == 0) {
+            $conn->exec("CREATE TABLE IF NOT EXISTS `click_fingerprints` (
+                `id` INT AUTO_INCREMENT PRIMARY KEY,
+                `click_id` VARCHAR(64) NOT NULL,
+                `campaign_id` INT NOT NULL,
+                `publisher_id` INT NOT NULL,
+                `ip_address` VARCHAR(45) NOT NULL,
+                `user_agent_hash` VARCHAR(64) NOT NULL,
+                `fingerprint` VARCHAR(128) NOT NULL,
+                `click_time` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                `converted` BOOLEAN DEFAULT FALSE,
+                `conversion_time` TIMESTAMP NULL,
+                UNIQUE KEY `unique_fingerprint` (`campaign_id`, `publisher_id`, `fingerprint`),
+                INDEX `idx_fingerprint` (`fingerprint`),
+                INDEX `idx_click_time` (`click_time`)
+            )");
+        }
+        
+        // Delete old fingerprints (older than 48 hours) to keep DB clean
+        $conn->exec("DELETE FROM click_fingerprints WHERE click_time < DATE_SUB(NOW(), INTERVAL 48 HOUR)");
+        
+        // Insert or update - no duplicate IPs stored
+        $stmt = $conn->prepare("
+            INSERT INTO click_fingerprints (click_id, campaign_id, publisher_id, ip_address, user_agent_hash, fingerprint, click_time, converted)
+            VALUES (?, ?, ?, ?, ?, ?, NOW(), FALSE)
+            ON DUPLICATE KEY UPDATE 
+                click_id = VALUES(click_id),
+                ip_address = VALUES(ip_address),
+                click_time = NOW(),
+                converted = FALSE
+        ");
+        $stmt->execute([$click_id, $campaign_id, $publisher_id, $ip, $user_agent_hash, $fingerprint]);
+        
+    } catch (Exception $e) {
+        error_log("Click fingerprint store error: " . $e->getMessage());
+    }
 }
 
 // Store click and return click_id
@@ -26,6 +81,10 @@ function storeClick($conn, $campaign_id, $publisher_id, $click_id) {
                 $_SERVER['HTTP_REFERER'] ?? ''
             ]);
         }
+        
+        // Also store fingerprint for parameter-less tracking
+        storeClickWithFingerprint($conn, $campaign_id, $publisher_id, $click_id);
+        
     } catch (Exception $e) {
         error_log("Click store error: " . $e->getMessage());
     }

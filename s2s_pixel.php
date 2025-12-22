@@ -1,11 +1,13 @@
 <?php
 // s2s_pixel.php - S2S Pixel with Publisher-specific tracking
-// Each publisher gets a unique pixel URL that auto-tracks their conversions
+// Supports: 1) click_id based tracking 2) IP+Fingerprint based tracking (when no parameters)
 
 header('Content-Type: application/json');
+header('Access-Control-Allow-Origin: *');
 
 // Get parameters
 $pub_code = $_GET['pub'] ?? '';  // Publisher unique code
+$click_id = $_GET['click_id'] ?? $_POST['click_id'] ?? '';  // Optional click_id
 $txn_id = $_GET['txn_id'] ?? $_POST['txn_id'] ?? '';
 $payout = $_GET['payout'] ?? $_POST['payout'] ?? null;
 $status = $_GET['status'] ?? $_POST['status'] ?? 'approved';
@@ -39,7 +41,8 @@ try {
     
     // Verify campaign and publisher exist
     $stmt = $conn->prepare("
-        SELECT c.name as campaign_name, p.name as publisher_name
+        SELECT c.name as campaign_name, p.name as publisher_name, 
+               COALESCE(c.attribution_window, 24) as attribution_window
         FROM campaigns c
         JOIN campaign_publishers cp ON c.id = cp.campaign_id
         JOIN publishers p ON cp.publisher_id = p.id
@@ -54,7 +57,73 @@ try {
         exit;
     }
     
-    // Check for duplicate conversion (same campaign, publisher, txn_id within 1 minute)
+    $attribution_window = $result['attribution_window'];
+    $matched_click_id = null;
+    $match_method = 'none';
+    
+    // METHOD 1: Try click_id based matching first (most accurate)
+    if (!empty($click_id)) {
+        $stmt = $conn->prepare("
+            SELECT click_id FROM click_fingerprints 
+            WHERE click_id = ? AND campaign_id = ? AND publisher_id = ? AND converted = FALSE
+        ");
+        $stmt->execute([$click_id, $campaign_id, $publisher_id]);
+        if ($row = $stmt->fetch()) {
+            $matched_click_id = $row['click_id'];
+            $match_method = 'click_id';
+        }
+    }
+    
+    // METHOD 2: IP + Fingerprint based matching (when no click_id or click_id not found)
+    if (empty($matched_click_id)) {
+        $ip = $_SERVER['REMOTE_ADDR'] ?? '';
+        $user_agent = $_SERVER['HTTP_USER_AGENT'] ?? '';
+        $fingerprint = hash('sha256', $ip . '|' . $user_agent);
+        
+        // Find matching click within attribution window
+        $stmt = $conn->prepare("
+            SELECT click_id, ip_address, click_time 
+            FROM click_fingerprints 
+            WHERE campaign_id = ? 
+            AND publisher_id = ? 
+            AND fingerprint = ?
+            AND converted = FALSE
+            AND click_time > DATE_SUB(NOW(), INTERVAL ? HOUR)
+            ORDER BY click_time DESC
+            LIMIT 1
+        ");
+        $stmt->execute([$campaign_id, $publisher_id, $fingerprint, $attribution_window]);
+        
+        if ($row = $stmt->fetch()) {
+            $matched_click_id = $row['click_id'];
+            $match_method = 'fingerprint';
+        }
+    }
+    
+    // METHOD 3: IP-only matching as fallback (less accurate but works)
+    if (empty($matched_click_id)) {
+        $ip = $_SERVER['REMOTE_ADDR'] ?? '';
+        
+        $stmt = $conn->prepare("
+            SELECT click_id, click_time 
+            FROM click_fingerprints 
+            WHERE campaign_id = ? 
+            AND publisher_id = ? 
+            AND ip_address = ?
+            AND converted = FALSE
+            AND click_time > DATE_SUB(NOW(), INTERVAL ? HOUR)
+            ORDER BY click_time DESC
+            LIMIT 1
+        ");
+        $stmt->execute([$campaign_id, $publisher_id, $ip, $attribution_window]);
+        
+        if ($row = $stmt->fetch()) {
+            $matched_click_id = $row['click_id'];
+            $match_method = 'ip_only';
+        }
+    }
+    
+    // Check for duplicate conversion
     if (!empty($txn_id)) {
         $stmt = $conn->prepare("
             SELECT id FROM s2s_conversions 
@@ -67,8 +136,21 @@ try {
         }
     }
     
-    // Generate a click_id for this conversion
-    $click_id = 'S2S_' . bin2hex(random_bytes(8)) . '_' . time();
+    // If no click matched, still record conversion but mark as unmatched
+    if (empty($matched_click_id)) {
+        $matched_click_id = 'UNMATCHED_' . bin2hex(random_bytes(8)) . '_' . time();
+        $match_method = 'unmatched';
+    }
+    
+    // Mark click as converted in fingerprints table
+    if ($match_method !== 'unmatched') {
+        $stmt = $conn->prepare("
+            UPDATE click_fingerprints 
+            SET converted = TRUE, conversion_time = NOW() 
+            WHERE click_id = ?
+        ");
+        $stmt->execute([$matched_click_id]);
+    }
     
     // Record S2S conversion
     $stmt = $conn->prepare("
@@ -76,7 +158,7 @@ try {
         VALUES (?, ?, ?, ?, ?, ?, ?)
     ");
     $stmt->execute([
-        $click_id,
+        $matched_click_id,
         $campaign_id,
         $publisher_id,
         $txn_id,
@@ -85,7 +167,7 @@ try {
         $_SERVER['REMOTE_ADDR'] ?? ''
     ]);
     
-    // Update publisher pixel codes conversion count (if table exists)
+    // Update publisher pixel codes conversion count
     try {
         $stmt = $conn->prepare("
             UPDATE publisher_pixel_codes 
@@ -94,7 +176,7 @@ try {
         ");
         $stmt->execute([$campaign_id, $publisher_id]);
     } catch (Exception $e) {
-        // Table might not exist, skip
+        // Table might not exist
     }
     
     // Update campaign conversion count
@@ -111,15 +193,17 @@ try {
     $stmt->execute([$campaign_id, $today]);
     
     // Log success
-    error_log("S2S Pixel Conversion: campaign={$result['campaign_name']}, publisher={$result['publisher_name']}, txn=$txn_id");
+    error_log("S2S Conversion: campaign={$result['campaign_name']}, publisher={$result['publisher_name']}, method=$match_method, txn=$txn_id");
     
     echo json_encode([
         'success' => true,
         'message' => 'Conversion recorded successfully',
+        'match_method' => $match_method,
         'data' => [
             'campaign' => $result['campaign_name'],
             'publisher' => $result['publisher_name'],
-            'transaction_id' => $txn_id
+            'transaction_id' => $txn_id,
+            'attribution_window' => $attribution_window . ' hours'
         ]
     ]);
     

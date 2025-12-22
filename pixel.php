@@ -1,6 +1,7 @@
 <?php
 // pixel.php - Conversion Tracking Pixel Endpoint
 // This file serves a 1x1 transparent pixel and tracks conversions
+// NOW SUPPORTS: Fingerprint-based tracking (no parameters needed!)
 
 // Function to output pixel and exit
 function outputPixel() {
@@ -10,6 +11,69 @@ function outputPixel() {
     header('Expires: 0');
     echo base64_decode('R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7');
     exit();
+}
+
+// Generate fingerprint from IP + User Agent (same as redirect.php)
+function generateFingerprint($ip, $user_agent) {
+    return hash('sha256', $ip . '|' . $user_agent);
+}
+
+// Match conversion with click using fingerprint (NO PARAMETERS NEEDED!)
+function matchConversionByFingerprint($conn, $campaign_id) {
+    $ip = $_SERVER['REMOTE_ADDR'] ?? '';
+    $user_agent = $_SERVER['HTTP_USER_AGENT'] ?? '';
+    $fingerprint = generateFingerprint($ip, $user_agent);
+    
+    try {
+        // Check if click_fingerprints table exists
+        $tableCheck = $conn->query("SHOW TABLES LIKE 'click_fingerprints'");
+        if ($tableCheck->rowCount() == 0) {
+            return null; // Table doesn't exist
+        }
+        
+        // Get attribution window (default 24 hours)
+        $attribution_window = 24;
+        $attrCheck = $conn->query("SHOW COLUMNS FROM campaigns LIKE 'attribution_window'");
+        if ($attrCheck->rowCount() > 0) {
+            $stmt = $conn->prepare("SELECT attribution_window FROM campaigns WHERE id = ?");
+            $stmt->execute([$campaign_id]);
+            $result = $stmt->fetch(PDO::FETCH_ASSOC);
+            if ($result && $result['attribution_window']) {
+                $attribution_window = $result['attribution_window'];
+            }
+        }
+        
+        // Find matching click within attribution window
+        $stmt = $conn->prepare("
+            SELECT id, publisher_id, click_id, click_time 
+            FROM click_fingerprints 
+            WHERE campaign_id = ? 
+            AND fingerprint = ? 
+            AND converted = FALSE
+            AND click_time >= DATE_SUB(NOW(), INTERVAL ? HOUR)
+            ORDER BY click_time DESC 
+            LIMIT 1
+        ");
+        $stmt->execute([$campaign_id, $fingerprint, $attribution_window]);
+        $match = $stmt->fetch(PDO::FETCH_ASSOC);
+        
+        if ($match) {
+            // Mark as converted
+            $stmt = $conn->prepare("
+                UPDATE click_fingerprints 
+                SET converted = TRUE, conversion_time = NOW() 
+                WHERE id = ?
+            ");
+            $stmt->execute([$match['id']]);
+            
+            return $match; // Return matched click data
+        }
+        
+    } catch (Exception $e) {
+        error_log("Fingerprint matching error: " . $e->getMessage());
+    }
+    
+    return null;
 }
 
 // Get pixel code from URL
@@ -70,6 +134,14 @@ try {
         $referrer = $_SERVER['HTTP_REFERER'] ?? '';
         $today = date('Y-m-d');
         
+        // TRY FINGERPRINT MATCHING FIRST (works without parameters!)
+        $fingerprintMatch = matchConversionByFingerprint($conn, $campaign_id);
+        
+        // If fingerprint matched, use that publisher_id
+        if ($fingerprintMatch && !$publisher_id) {
+            $publisher_id = $fingerprintMatch['publisher_id'];
+        }
+        
         // Check if conversions table exists
         $tableCheck = $conn->query("SHOW TABLES LIKE 'conversions'");
         if ($tableCheck->rowCount() > 0) {
@@ -94,6 +166,17 @@ try {
                 // Update publisher pixel conversion count
                 $stmt = $conn->prepare("UPDATE publisher_pixel_codes SET conversion_count = conversion_count + 1 WHERE campaign_id = ? AND publisher_id = ?");
                 $stmt->execute([$campaign_id, $publisher_id]);
+                
+                // Update publisher daily conversions
+                $dailyPubCheck = $conn->query("SHOW TABLES LIKE 'publisher_daily_clicks'");
+                if ($dailyPubCheck->rowCount() > 0) {
+                    $stmt = $conn->prepare("
+                        INSERT INTO publisher_daily_clicks (campaign_id, publisher_id, click_date, conversions) 
+                        VALUES (?, ?, ?, 1)
+                        ON DUPLICATE KEY UPDATE conversions = conversions + 1
+                    ");
+                    $stmt->execute([$campaign_id, $publisher_id, $today]);
+                }
             } else {
                 $stmt = $conn->prepare("
                     INSERT INTO conversions (campaign_id, pixel_code, ip_address, user_agent, referrer) 
