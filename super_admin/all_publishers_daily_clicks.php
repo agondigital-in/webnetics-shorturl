@@ -17,6 +17,7 @@ $conn = $db->getConnection();
 $filter_type = $_GET['filter'] ?? 'custom';
 $start_date = $_GET['start_date'] ?? date('Y-m-d', strtotime('-30 days'));
 $end_date = $_GET['end_date'] ?? date('Y-m-d');
+$publisher_filter = $_GET['publisher_id'] ?? '';
 
 if (isset($_GET['filter'])) {
     switch ($_GET['filter']) {
@@ -36,6 +37,11 @@ if (isset($_GET['filter'])) {
             break;
     }
 }
+
+// Get all publishers for filter dropdown
+$stmt = $conn->prepare("SELECT id, name FROM publishers ORDER BY name");
+$stmt->execute();
+$all_publishers = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
 // Get all campaigns with clicks and conversions (for Campaign Conversions table)
 $stmt = $conn->prepare("
@@ -68,7 +74,7 @@ try {
 
 if ($has_publisher_pixels) {
     // Get publisher-wise pixel codes and conversions
-    $stmt = $conn->prepare("
+    $sql = "
         SELECT 
             c.id as campaign_id, 
             c.name as campaign_name, 
@@ -82,12 +88,21 @@ if ($has_publisher_pixels) {
         JOIN campaign_publishers cp ON c.id = cp.campaign_id
         JOIN publishers p ON cp.publisher_id = p.id
         LEFT JOIN publisher_pixel_codes ppc ON c.id = ppc.campaign_id AND p.id = ppc.publisher_id
-        LEFT JOIN publisher_daily_clicks pdc ON c.id = pdc.campaign_id AND p.id = pdc.publisher_id AND pdc.click_date BETWEEN ? AND ?
-        GROUP BY c.id, c.name, ppc.pixel_code, ppc.conversion_count, p.id, p.name
-        ORDER BY c.name, p.name
-    ");
+        LEFT JOIN publisher_daily_clicks pdc ON c.id = pdc.campaign_id AND p.id = pdc.publisher_id AND pdc.click_date BETWEEN ? AND ?";
+    
+    $params = [$start_date, $end_date];
+    
+    if (!empty($publisher_filter)) {
+        $sql .= " WHERE p.id = ?";
+        $params[] = $publisher_filter;
+    }
+    
+    $sql .= " GROUP BY c.id, c.name, ppc.pixel_code, ppc.conversion_count, p.id, p.name
+        ORDER BY c.name, p.name";
+    
+    $stmt = $conn->prepare($sql);
 } elseif ($has_pixel_columns) {
-    $stmt = $conn->prepare("
+    $sql = "
         SELECT 
             c.id as campaign_id, 
             c.name as campaign_name, 
@@ -99,12 +114,21 @@ if ($has_publisher_pixels) {
         FROM campaigns c
         JOIN campaign_publishers cp ON c.id = cp.campaign_id
         JOIN publishers p ON cp.publisher_id = p.id
-        LEFT JOIN publisher_daily_clicks pdc ON c.id = pdc.campaign_id AND p.id = pdc.publisher_id AND pdc.click_date BETWEEN ? AND ?
-        GROUP BY c.id, c.name, c.pixel_code, p.id, p.name, c.conversion_count
-        ORDER BY c.name, p.name
-    ");
+        LEFT JOIN publisher_daily_clicks pdc ON c.id = pdc.campaign_id AND p.id = pdc.publisher_id AND pdc.click_date BETWEEN ? AND ?";
+    
+    $params = [$start_date, $end_date];
+    
+    if (!empty($publisher_filter)) {
+        $sql .= " WHERE p.id = ?";
+        $params[] = $publisher_filter;
+    }
+    
+    $sql .= " GROUP BY c.id, c.name, c.pixel_code, p.id, p.name, c.conversion_count
+        ORDER BY c.name, p.name";
+    
+    $stmt = $conn->prepare($sql);
 } else {
-    $stmt = $conn->prepare("
+    $sql = "
         SELECT 
             c.id as campaign_id, 
             c.name as campaign_name, 
@@ -116,12 +140,21 @@ if ($has_publisher_pixels) {
         FROM campaigns c
         JOIN campaign_publishers cp ON c.id = cp.campaign_id
         JOIN publishers p ON cp.publisher_id = p.id
-        LEFT JOIN publisher_daily_clicks pdc ON c.id = pdc.campaign_id AND p.id = pdc.publisher_id AND pdc.click_date BETWEEN ? AND ?
-        GROUP BY c.id, c.name, p.id, p.name
-        ORDER BY c.name, p.name
-    ");
+        LEFT JOIN publisher_daily_clicks pdc ON c.id = pdc.campaign_id AND p.id = pdc.publisher_id AND pdc.click_date BETWEEN ? AND ?";
+    
+    $params = [$start_date, $end_date];
+    
+    if (!empty($publisher_filter)) {
+        $sql .= " WHERE p.id = ?";
+        $params[] = $publisher_filter;
+    }
+    
+    $sql .= " GROUP BY c.id, c.name, p.id, p.name
+        ORDER BY c.name, p.name";
+    
+    $stmt = $conn->prepare($sql);
 }
-$stmt->execute([$start_date, $end_date]);
+$stmt->execute($params);
 $publisher_summary = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
 // Calculate totals
@@ -151,27 +184,38 @@ require_once 'includes/navbar.php';
             <div class="card mb-4">
                 <div class="card-body">
                     <div class="row align-items-end g-3">
-                        <div class="col-lg-5">
+                        <div class="col-lg-4">
                             <label class="form-label fw-semibold small text-muted">Quick Filters</label>
                             <div class="d-flex gap-2 flex-wrap">
-                                <a href="?filter=today" class="btn btn-sm btn-outline-primary <?php echo $filter_type == 'today' ? 'active' : ''; ?>">Today</a>
-                                <a href="?filter=yesterday" class="btn btn-sm btn-outline-primary <?php echo $filter_type == 'yesterday' ? 'active' : ''; ?>">Yesterday</a>
-                                <a href="?filter=this_month" class="btn btn-sm btn-outline-primary <?php echo $filter_type == 'this_month' ? 'active' : ''; ?>">This Month</a>
-                                <a href="?filter=previous_month" class="btn btn-sm btn-outline-primary <?php echo $filter_type == 'previous_month' ? 'active' : ''; ?>">Prev Month</a>
+                                <a href="?filter=today<?php echo !empty($publisher_filter) ? '&publisher_id='.$publisher_filter : ''; ?>" class="btn btn-sm btn-outline-primary <?php echo $filter_type == 'today' ? 'active' : ''; ?>">Today</a>
+                                <a href="?filter=yesterday<?php echo !empty($publisher_filter) ? '&publisher_id='.$publisher_filter : ''; ?>" class="btn btn-sm btn-outline-primary <?php echo $filter_type == 'yesterday' ? 'active' : ''; ?>">Yesterday</a>
+                                <a href="?filter=this_month<?php echo !empty($publisher_filter) ? '&publisher_id='.$publisher_filter : ''; ?>" class="btn btn-sm btn-outline-primary <?php echo $filter_type == 'this_month' ? 'active' : ''; ?>">This Month</a>
+                                <a href="?filter=previous_month<?php echo !empty($publisher_filter) ? '&publisher_id='.$publisher_filter : ''; ?>" class="btn btn-sm btn-outline-primary <?php echo $filter_type == 'previous_month' ? 'active' : ''; ?>">Prev Month</a>
                             </div>
                         </div>
-                        <div class="col-lg-7">
+                        <div class="col-lg-8">
                             <form method="GET" class="row g-2">
                                 <input type="hidden" name="filter" value="custom">
-                                <div class="col-md-4">
+                                <div class="col-md-3">
+                                    <label class="form-label small text-muted">Publisher</label>
+                                    <select class="form-select form-select-sm" name="publisher_id">
+                                        <option value="">All Publishers</option>
+                                        <?php foreach ($all_publishers as $pub): ?>
+                                        <option value="<?php echo $pub['id']; ?>" <?php echo $publisher_filter == $pub['id'] ? 'selected' : ''; ?>>
+                                            <?php echo htmlspecialchars($pub['name']); ?>
+                                        </option>
+                                        <?php endforeach; ?>
+                                    </select>
+                                </div>
+                                <div class="col-md-3">
                                     <label class="form-label small text-muted">Start Date</label>
                                     <input type="date" class="form-control form-control-sm" name="start_date" value="<?php echo $start_date; ?>">
                                 </div>
-                                <div class="col-md-4">
+                                <div class="col-md-3">
                                     <label class="form-label small text-muted">End Date</label>
                                     <input type="date" class="form-control form-control-sm" name="end_date" value="<?php echo $end_date; ?>">
                                 </div>
-                                <div class="col-md-4">
+                                <div class="col-md-3">
                                     <label class="form-label d-none d-md-block">&nbsp;</label>
                                     <button type="submit" class="btn btn-primary-custom btn-sm w-100">Apply</button>
                                 </div>
@@ -284,7 +328,15 @@ require_once 'includes/navbar.php';
             <!-- Publisher Performance Table -->
             <div class="card">
                 <div class="card-header d-flex justify-content-between align-items-center">
-                    <span><i class="fas fa-users me-2"></i>Publisher Performance</span>
+                    <span><i class="fas fa-users me-2"></i>Publisher Performance
+                        <?php if (!empty($publisher_filter)): ?>
+                            <?php 
+                            $selected_pub = array_filter($all_publishers, fn($p) => $p['id'] == $publisher_filter);
+                            $selected_pub = reset($selected_pub);
+                            ?>
+                            <small class="text-muted">- <?php echo htmlspecialchars($selected_pub['name'] ?? 'Unknown'); ?></small>
+                        <?php endif; ?>
+                    </span>
                     <span class="badge bg-primary"><?php echo date('M d', strtotime($start_date)); ?> - <?php echo date('M d', strtotime($end_date)); ?></span>
                 </div>
                 <div class="card-body p-0">
