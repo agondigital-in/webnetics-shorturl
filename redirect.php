@@ -90,8 +90,20 @@ function storeClick($conn, $campaign_id, $publisher_id, $click_id) {
     }
 }
 
-// Append click_id to target URL
-function appendClickId($url, $click_id) {
+// Simple: target_url + _pubid + ?click_id=xyz
+// Example: https://instagram.com/xyz → https://instagram.com/xyz_32?click_id=abc123
+function appendTrackingParams($url, $click_id, $publisher_id) {
+    // Remove trailing slash and add _publisher_id
+    $url = rtrim($url, '/') . '_' . $publisher_id;
+    // Add click_id as query parameter
+    return $url . '?click_id=' . $click_id;
+}
+
+// Legacy function for backward compatibility
+function appendClickId($url, $click_id, $publisher_id = null) {
+    if ($publisher_id !== null) {
+        return appendTrackingParams($url, $click_id, $publisher_id);
+    }
     $separator = (parse_url($url, PHP_URL_QUERY) == null) ? '?' : '&';
     return $url . $separator . 'click_id=' . $click_id;
 }
@@ -147,8 +159,8 @@ if (empty($publisher_id) && !empty($short_code)) {
             $click_id = generateClickId();
             storeClick($conn, $campaign_id, $publisher_id, $click_id);
             
-            // Redirect to the target URL with click_id
-            $redirect_url = appendClickId($result['target_url'], $click_id);
+            // Redirect to the target URL with click_id and publisher_id
+            $redirect_url = appendTrackingParams($result['target_url'], $click_id, $publisher_id);
             header("Location: " . $redirect_url, true, 302);
             exit();
         }
@@ -263,8 +275,8 @@ try {
     $click_id = generateClickId();
     storeClick($conn, $campaign_id, $publisher_id, $click_id);
     
-    // Redirect to the target URL with click_id
-    $redirect_url = appendClickId($result['target_url'], $click_id);
+    // Redirect to the target URL with click_id and publisher_id
+    $redirect_url = appendTrackingParams($result['target_url'], $click_id, $publisher_id);
     header("Location: " . $redirect_url, true, 302);
     exit();
     

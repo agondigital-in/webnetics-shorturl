@@ -133,3 +133,4 @@ All automatic - no manual tracking needed!
 **After:** Advertiser adds 1 simple pixel tag - DONE! ✅
 
 System automatically matches conversions using IP + User Agent fingerprinting.
+
